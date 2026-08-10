@@ -21,11 +21,8 @@ class Quest(models.Model):
         FAILED = "FAILED", "실패"
         ABANDONED = "ABANDONED", "포기"
 
-    quest_id = models.CharField(
-        max_length=10,
-        primary_key=True,
-        db_column="Quest_ID",
-    )
+    '''quest_ID는 장고에서 기본 생성한 PK로 대체'''
+
     state = models.CharField(
         max_length=9,
         choices=State.choices,
@@ -63,4 +60,4 @@ class Quest(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.quest_id} ({self.state})"
+        return f"({self.id}-{self.quest_content}-{self.state})"
