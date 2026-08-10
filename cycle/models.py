@@ -44,4 +44,4 @@ class Cycle(models.Model):
         verbose_name_plural = "사이클 목록"
 
     def __str__(self):
-        return f"{self.cycle_id} ({self.state})"
+        return f"{self.id} ({self.state})"
