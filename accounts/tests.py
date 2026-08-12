@@ -408,3 +408,43 @@ class SettingsViewTests(TestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, 401)
+
+
+class NotificationSettingsViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/settings/notifications/"
+        self.user = User.objects.create_user(
+            email="notif-settings@example.com", password="correct-horse-battery"
+        )
+        login_response = self.client.post(
+            "/auth/login/",
+            {"email": "notif-settings@example.com", "password": "correct-horse-battery"},
+        )
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}"
+        )
+
+    def test_disable_notifications_updates_user(self):
+        response = self.client.patch(self.url, {"enabled": False}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["notification_enabled"], False)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.notification_enabled)
+
+    def test_enable_notifications_updates_user(self):
+        self.user.notification_enabled = False
+        self.user.save()
+
+        response = self.client.patch(self.url, {"enabled": True}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["notification_enabled"], True)
+
+    def test_notification_settings_without_auth_returns_401(self):
+        self.client.credentials()
+
+        response = self.client.patch(self.url, {"enabled": False}, format="json")
+
+        self.assertEqual(response.status_code, 401)

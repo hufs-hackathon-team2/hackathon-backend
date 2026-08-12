@@ -4,6 +4,7 @@ from .views import (
     CharacterSelectView,
     LoginView,
     LogoutView,
+    NotificationSettingsView,
     OnboardingCompleteView,
     RefreshView,
     SettingsView,
@@ -24,4 +25,9 @@ urlpatterns = [
         name="onboarding-complete",
     ),
     path("settings/", SettingsView.as_view(), name="settings"),
+    path(
+        "settings/notifications/",
+        NotificationSettingsView.as_view(),
+        name="notification-settings",
+    ),
 ]

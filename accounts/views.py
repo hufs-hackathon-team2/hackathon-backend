@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from .serializers import (
     CharacterSelectSerializer,
     LoginSerializer,
+    NotificationSettingsSerializer,
     RefreshSerializer,
     SignupSerializer,
 )
@@ -119,5 +120,19 @@ class SettingsView(APIView):
     def get(self, request):
         return Response(
             {"nickname": request.user.nickname, "email": request.user.email},
+            status=status.HTTP_200_OK,
+        )
+
+
+class NotificationSettingsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        serializer = NotificationSettingsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        request.user.notification_enabled = serializer.validated_data["enabled"]
+        request.user.save(update_fields=["notification_enabled"])
+        return Response(
+            {"notification_enabled": request.user.notification_enabled},
             status=status.HTTP_200_OK,
         )
