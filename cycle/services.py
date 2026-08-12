@@ -28,10 +28,10 @@ def check_and_apply_rest_transition(user: User, today: date, source: str) -> boo
 
     source: "batch" (매일 밤 자동 점검) | "app_entry" (앱 진입 시 보정)
 
-    가드: user.cycle_status == ACTIVE AND (today - last_record_date).days >= 7
+    가드: user.cycle_state == ACTIVE AND (today - last_record_date).days >= 7
 
     처리:
-    - user.current_cycle_status -> RESTING
+    - user.current_cycle_state -> RESTING
     - 현재 Cycle에 휴식 시작일 기록
     - 휴식기 알림 발송 + 발송 시각 기록 (C3, C4 동일 처리)
 
@@ -44,7 +44,7 @@ def check_and_apply_rest_transition(user: User, today: date, source: str) -> boo
         if current_cycle.state == 'ACTIVE' and (today - last_record_date).days >= 7:
             current_cycle.state = 'RESTING'          
             current_cycle.rest_started_at = today
-            current_cycle.save(update_fields=['status', 'rest_started_at'])
+            current_cycle.save(update_fields=['state', 'rest_started_at'])
             return True  
         else: return False
     else:
@@ -60,15 +60,15 @@ def close_and_start_new_cycle(user: User, trigger_date: date, linked_record=None
 
     trigger: plus log 저장(C5) 또는 퀘스트 시작(C8)
 
-    가드: user.cycle_status == RESTING 인 경우에만 실행
+    가드: user.cycle_state == RESTING 인 경우에만 실행
           (RESTING -> ACTIVE 직접 전환 금지, 반드시 CLOSED를 거침)
 
     처리:
-    - 기존 Cycle: ended_at = trigger_date - 1, status = CLOSED
+    - 기존 Cycle: ended_at = trigger_date - 1, state = CLOSED
     - 지난 사이클 분석 요청 트리거
-    - 새 Cycle 생성 (started_at = trigger_date, status = ACTIVE)
+    - 새 Cycle 생성 (started_at = trigger_date, state = ACTIVE)
     - linked_record(방금의 log/quest)를 새 사이클에 연결
-    - user.cycle_status -> ACTIVE
+    - user.cycle_state -> ACTIVE
 
     반환: 새로 생성된 Cycle, 조건 미충족 시 None
     """
@@ -100,8 +100,8 @@ def handle_app_entry(user: User, today: date) -> bool:
     """
     [C4/C7] 앱 진입 시 호출.
 
-    - user.cycle_status == ACTIVE 이고 7일 경과 -> check_and_apply_rest_transition 호출 (C4)
-    - user.cycle_status == RESTING -> 아무것도 하지 않고 그대로 유지 (C7)
+    - user.cycle_state == ACTIVE 이고 7일 경과 -> check_and_apply_rest_transition 호출 (C4)
+    - user.cycle_state == RESTING -> 아무것도 하지 않고 그대로 유지 (C7)
       (금지 전이: 앱 진입만으로 RESTING 종료 불가)
 
     반환: RESTING으로 전환되었는지 여부
@@ -114,7 +114,7 @@ def handle_app_entry(user: User, today: date) -> bool:
     return False
 
 
-def get_resume_screen_data(user: User) -> dict:
+def get_resume_screen_data(user: User, previous_cycle: Cycle) -> list:
     """
     [CY-05] C6 직후 노출되는 재개 팝업 데이터 구성.
 
@@ -122,7 +122,9 @@ def get_resume_screen_data(user: User) -> dict:
     - 직전 성공(DONE) 퀘스트 조회 -> 추천 문구에 삽입
     - 성공 퀘스트가 없는 경우의 fallback 문구 처리 필요
     """
-    pass
+    succeeded_quests = Quest.objects.filter(cycle_id=previous_cycle.id, state='DONE')
+
+    return [quest.quest_content for quest in succeeded_quests]
 
 
 def start_cycle_after_onboarding(user: User, today: date) -> Cycle | None:
