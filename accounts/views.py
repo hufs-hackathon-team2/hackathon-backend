@@ -33,6 +33,7 @@ class SignupView(APIView):
             {
                 "user_id": user.user_id,
                 "email": user.email,
+                "nickname": user.nickname,
                 "access": access,
                 "refresh": refresh,
             },

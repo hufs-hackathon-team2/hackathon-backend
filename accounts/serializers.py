@@ -14,6 +14,7 @@ from .models import RefreshToken, User
 class SignupSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
+    nickname = serializers.CharField(min_length=2, max_length=10)
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():

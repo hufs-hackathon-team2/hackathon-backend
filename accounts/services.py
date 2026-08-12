@@ -25,8 +25,8 @@ def issue_tokens(user):
     return access, refresh
 
 
-def signup(email, password):
-    user = User.objects.create_user(email=email, password=password)
+def signup(email, password, nickname):
+    user = User.objects.create_user(email=email, password=password, nickname=nickname)
     access, refresh = issue_tokens(user)
     return user, access, refresh
 

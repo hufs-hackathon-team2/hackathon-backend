@@ -24,6 +24,8 @@ class UserManager(BaseUserManager):
 class User(AbstractBaseUser):
     user_id = models.CharField(max_length=10, primary_key=True)
     email = models.EmailField(max_length=100, unique=True)
+    # default=""는 마이그레이션 백필용. 실제 2~10자 검증은 SignupSerializer가 담당한다.
+    nickname = models.CharField(max_length=10, default="")
     onboarding_completed = models.BooleanField(default=False)
     push_permission_granted = models.BooleanField(default=False)
     notification_enabled = models.BooleanField(default=True)

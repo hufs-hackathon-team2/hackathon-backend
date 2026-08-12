@@ -47,25 +47,37 @@ class SignupViewTests(TestCase):
 
     def test_signup_creates_user_and_returns_tokens(self):
         response = self.client.post(
-            self.url, {"email": "new@example.com", "password": "correct-horse-battery"}
+            self.url,
+            {
+                "email": "new@example.com",
+                "password": "correct-horse-battery1",
+                "nickname": "말순이",
+            },
         )
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["email"], "new@example.com")
+        self.assertEqual(response.data["nickname"], "말순이")
         self.assertIn("access", response.data)
         self.assertIn("refresh", response.data)
         self.assertNotIn("password", response.data)
 
         user = User.objects.get(email="new@example.com")
         self.assertEqual(response.data["user_id"], user.user_id)
+        self.assertEqual(user.nickname, "말순이")
         self.assertEqual(RefreshToken.objects.filter(user=user).count(), 1)
         self.assertEqual(RefreshToken.objects.get(user=user).token, response.data["refresh"])
 
     def test_signup_duplicate_email_returns_400(self):
-        User.objects.create_user(email="dup@example.com", password="correct-horse-battery")
+        User.objects.create_user(email="dup@example.com", password="correct-horse-battery1")
 
         response = self.client.post(
-            self.url, {"email": "dup@example.com", "password": "correct-horse-battery"}
+            self.url,
+            {
+                "email": "dup@example.com",
+                "password": "correct-horse-battery1",
+                "nickname": "말순이",
+            },
         )
 
         self.assertEqual(response.status_code, 400)
@@ -73,12 +85,63 @@ class SignupViewTests(TestCase):
 
     def test_signup_weak_password_returns_400(self):
         response = self.client.post(
-            self.url, {"email": "new@example.com", "password": "1234"}
+            self.url,
+            {"email": "new@example.com", "password": "1234", "nickname": "말순이"},
         )
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("password", response.data)
         self.assertFalse(User.objects.filter(email="new@example.com").exists())
+
+    def test_signup_password_without_digit_returns_400(self):
+        response = self.client.post(
+            self.url,
+            {"email": "new@example.com", "password": "abcdefgh", "nickname": "말순이"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("password", response.data)
+        self.assertFalse(User.objects.filter(email="new@example.com").exists())
+
+    def test_signup_password_without_letter_returns_400(self):
+        response = self.client.post(
+            self.url,
+            {"email": "new@example.com", "password": "12345678", "nickname": "말순이"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("password", response.data)
+        self.assertFalse(User.objects.filter(email="new@example.com").exists())
+
+    def test_signup_without_nickname_returns_400(self):
+        response = self.client.post(
+            self.url, {"email": "new@example.com", "password": "correct-horse-battery1"}
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("nickname", response.data)
+
+    def test_signup_nickname_too_short_returns_400(self):
+        response = self.client.post(
+            self.url,
+            {"email": "new@example.com", "password": "correct-horse-battery1", "nickname": "말"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("nickname", response.data)
+
+    def test_signup_nickname_too_long_returns_400(self):
+        response = self.client.post(
+            self.url,
+            {
+                "email": "new@example.com",
+                "password": "correct-horse-battery1",
+                "nickname": "가" * 11,
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("nickname", response.data)
 
 
 class LoginViewTests(TestCase):
