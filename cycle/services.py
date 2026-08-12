@@ -2,7 +2,7 @@
 from datetime import date
 from django.utils import timezone
 from .models import User, Cycle, PlusLog, Quest
-
+from django.db import transaction
 
 def get_last_record_date(user: User) -> date | None:
     #해당 유저의 플러스로그 마지막 기록일, 작심삼일퀘스트 마지막 시작일/체크일 조회
@@ -41,8 +41,8 @@ def check_and_apply_rest_transition(user: User, today: date, source: str) -> boo
     current_cycle = user.current_cycle
 
     if last_record_date and current_cycle:
-        if current_cycle.status == 'ACTIVE' and (today - last_record_date).days >= 7:
-            current_cycle.status = 'RESTING'          
+        if current_cycle.state == 'ACTIVE' and (today - last_record_date).days >= 7:
+            current_cycle.state = 'RESTING'          
             current_cycle.rest_started_at = today
             current_cycle.save(update_fields=['status', 'rest_started_at'])
             return True  
@@ -64,7 +64,7 @@ def close_and_start_new_cycle(user: User, trigger_date: date, linked_record=None
           (RESTING -> ACTIVE 직접 전환 금지, 반드시 CLOSED를 거침)
 
     처리:
-    - 기존 Cycle: ended_at = trigger_date, status = CLOSED
+    - 기존 Cycle: ended_at = trigger_date - 1, status = CLOSED
     - 지난 사이클 분석 요청 트리거
     - 새 Cycle 생성 (started_at = trigger_date, status = ACTIVE)
     - linked_record(방금의 log/quest)를 새 사이클에 연결
@@ -72,7 +72,28 @@ def close_and_start_new_cycle(user: User, trigger_date: date, linked_record=None
 
     반환: 새로 생성된 Cycle, 조건 미충족 시 None
     """
-    
+    current_cycle = user.current_cycle
+
+    if not current_cycle or current_cycle.state != 'RESTING':
+        return None
+
+    with transaction.atomic():
+        current_cycle.state='CLOSED'
+        current_cycle.closed_at=trigger_date - 1
+        current_cycle.save(update_fields=['state', 'closed_at'])
+
+        #TODO: 지난 사이클 분석 요청 트리거
+
+        new_cycle = Cycle.objects.create(
+            user_ID=user, state='ACTIVE', 
+            started_at=trigger_date, count = current_cycle.count+1
+        )
+
+        #TODO: linked_record를 new_cycle에 연결
+        user.current_cycle = new_cycle
+        user.save(update_fields=['current_cycle'])
+
+        return new_cycle
 
 
 def handle_app_entry(user: User, today: date) -> bool:
@@ -87,7 +108,7 @@ def handle_app_entry(user: User, today: date) -> bool:
     """
     current_cycle = user.current_cycle
 
-    if current_cycle and current_cycle.status == 'ACTIVE':
+    if current_cycle and current_cycle.state == 'ACTIVE':
         return check_and_apply_rest_transition(user, today, 'app_entry')
 
     return False
