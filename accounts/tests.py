@@ -75,3 +75,57 @@ class SignupViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("password", response.data)
         self.assertFalse(User.objects.filter(email="new@example.com").exists())
+
+
+class LoginViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/auth/login/"
+        self.user = User.objects.create_user(
+            email="login@example.com", password="correct-horse-battery"
+        )
+
+    def test_login_returns_tokens_and_onboarding_status(self):
+        response = self.client.post(
+            self.url, {"email": "login@example.com", "password": "correct-horse-battery"}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["user_id"], self.user.user_id)
+        self.assertEqual(response.data["onboarding_completed"], False)
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
+        self.assertEqual(
+            RefreshToken.objects.filter(user=self.user, token=response.data["refresh"]).count(),
+            1,
+        )
+
+    def test_login_reflects_onboarding_completed_true(self):
+        self.user.onboarding_completed = True
+        self.user.save()
+
+        response = self.client.post(
+            self.url, {"email": "login@example.com", "password": "correct-horse-battery"}
+        )
+
+        self.assertEqual(response.data["onboarding_completed"], True)
+
+    def test_login_wrong_password_returns_401(self):
+        response = self.client.post(
+            self.url, {"email": "login@example.com", "password": "wrong-password"}
+        )
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_nonexistent_email_returns_401_with_same_message(self):
+        wrong_password_response = self.client.post(
+            self.url, {"email": "login@example.com", "password": "wrong-password"}
+        )
+        nonexistent_email_response = self.client.post(
+            self.url, {"email": "nobody@example.com", "password": "wrong-password"}
+        )
+
+        self.assertEqual(nonexistent_email_response.status_code, 401)
+        self.assertEqual(
+            nonexistent_email_response.data["detail"], wrong_password_response.data["detail"]
+        )
