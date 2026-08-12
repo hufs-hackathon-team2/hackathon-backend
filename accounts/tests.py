@@ -448,3 +448,52 @@ class NotificationSettingsViewTests(TestCase):
         response = self.client.patch(self.url, {"enabled": False}, format="json")
 
         self.assertEqual(response.status_code, 401)
+
+
+class WithdrawalViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/users/me/"
+        self.user = User.objects.create_user(
+            email="withdraw@example.com", password="correct-horse-battery"
+        )
+        login_response = self.client.post(
+            "/auth/login/",
+            {"email": "withdraw@example.com", "password": "correct-horse-battery"},
+        )
+        self.refresh_token = login_response.data["refresh"]
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}"
+        )
+
+    def test_withdrawal_deletes_user_and_returns_204(self):
+        response = self.client.delete(
+            self.url, {"password": "correct-horse-battery"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(User.objects.filter(email="withdraw@example.com").exists())
+
+    def test_withdrawal_cascades_refresh_tokens(self):
+        self.assertEqual(RefreshToken.objects.filter(token=self.refresh_token).count(), 1)
+
+        self.client.delete(self.url, {"password": "correct-horse-battery"}, format="json")
+
+        self.assertEqual(RefreshToken.objects.filter(token=self.refresh_token).count(), 0)
+
+    def test_withdrawal_wrong_password_returns_401(self):
+        response = self.client.delete(
+            self.url, {"password": "wrong-password"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertTrue(User.objects.filter(email="withdraw@example.com").exists())
+
+    def test_withdrawal_without_auth_returns_401(self):
+        self.client.credentials()
+
+        response = self.client.delete(
+            self.url, {"password": "correct-horse-battery"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 401)

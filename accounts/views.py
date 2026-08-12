@@ -11,6 +11,7 @@ from .serializers import (
     NotificationSettingsSerializer,
     RefreshSerializer,
     SignupSerializer,
+    WithdrawalSerializer,
 )
 from .services import complete_onboarding, issue_tokens, signup
 
@@ -136,3 +137,15 @@ class NotificationSettingsView(APIView):
             {"notification_enabled": request.user.notification_enabled},
             status=status.HTTP_200_OK,
         )
+
+
+class WithdrawalView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        serializer = WithdrawalSerializer(data=request.data, context={"user": request.user})
+        error_response = _validate_or_401(serializer)
+        if error_response:
+            return error_response
+        request.user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

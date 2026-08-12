@@ -9,6 +9,7 @@ from .views import (
     RefreshView,
     SettingsView,
     SignupView,
+    WithdrawalView,
 )
 
 # NOTE: 이 앱은 /auth/*, /users/*, /settings/* 등 여러 프리픽스의 엔드포인트를 함께
@@ -30,4 +31,5 @@ urlpatterns = [
         NotificationSettingsView.as_view(),
         name="notification-settings",
     ),
+    path("users/me/", WithdrawalView.as_view(), name="withdrawal"),
 ]

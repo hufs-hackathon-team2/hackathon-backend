@@ -82,3 +82,13 @@ class CharacterSelectSerializer(serializers.Serializer):
 
 class NotificationSettingsSerializer(serializers.Serializer):
     enabled = serializers.BooleanField()
+
+
+class WithdrawalSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True)
+
+    def validate_password(self, value):
+        user = self.context["user"]
+        if not user.check_password(value):
+            raise AuthenticationFailed("비밀번호가 올바르지 않습니다.")
+        return value
