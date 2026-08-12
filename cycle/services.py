@@ -1,5 +1,5 @@
 # cycle_services.py
-from datetime import date
+from datetime import date, timedelta
 from django.utils import timezone
 from .models import User, Cycle, PlusLog, Quest
 from django.db import transaction
@@ -94,19 +94,25 @@ def close_and_start_new_cycle(user: User, trigger_date: date, linked_record=None
 
     with transaction.atomic():
         current_cycle.state='CLOSED'
-        current_cycle.closed_at=trigger_date - 1
+        current_cycle.closed_at=trigger_date - timedelta(days=1)
         current_cycle.save(update_fields=['state', 'closed_at'])
 
         #TODO: 지난 사이클 분석 요청 트리거
 
         new_cycle = Cycle.objects.create(
-            user_ID=user, state='ACTIVE', 
+            user=user, state='ACTIVE', 
             started_at=trigger_date, count = current_cycle.count+1
         )
 
-        #TODO: linked_record를 new_cycle에 연결
+
         user.current_cycle = new_cycle
         user.save(update_fields=['current_cycle'])
+
+        #TODO: linked_record를 new_cycle에 연결 
+        # (quest는 완료, pluslog 연결 TODO)
+        if linked_record is not None:
+            linked_record.cycle = new_cycle
+            linked_record.save(update_fields=['cycle'])
 
         return new_cycle
 
@@ -140,7 +146,7 @@ def start_cycle_after_onboarding(user: User, today: date) -> Cycle | None:
     with transaction.atomic():
         
         new_cycle = Cycle.objects.create(
-            user_ID=user, state='ACTIVE', 
+            user=user, state='ACTIVE', 
             started_at=today, count = 1
         )
 
