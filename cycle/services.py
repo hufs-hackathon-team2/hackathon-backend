@@ -123,3 +123,20 @@ def get_resume_screen_data(user: User) -> dict:
     - 성공 퀘스트가 없는 경우의 fallback 문구 처리 필요
     """
     pass
+
+
+def start_cycle_after_onboarding(user: User, today: date) -> Cycle | None:
+    if user.current_cycle is not None:
+        return None
+
+    with transaction.atomic():
+        
+        new_cycle = Cycle.objects.create(
+            user_ID=user, state='ACTIVE', 
+            started_at=today, count = 1
+        )
+
+        user.current_cycle = new_cycle
+        user.save(update_fields=['current_cycle'])
+
+    return new_cycle
