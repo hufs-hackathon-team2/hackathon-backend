@@ -11,7 +11,7 @@ from .serializers import (
     RefreshSerializer,
     SignupSerializer,
 )
-from .services import issue_tokens, signup
+from .services import complete_onboarding, issue_tokens, signup
 
 
 def _validate_or_401(serializer):
@@ -99,4 +99,14 @@ class CharacterSelectView(APIView):
         request.user.save(update_fields=["character_id"])
         return Response(
             {"character_id": request.user.character_id}, status=status.HTTP_200_OK
+        )
+
+
+class OnboardingCompleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = complete_onboarding(request.user)
+        return Response(
+            {"onboarding_completed": user.onboarding_completed}, status=status.HTTP_200_OK
         )

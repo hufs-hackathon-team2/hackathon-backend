@@ -29,3 +29,18 @@ def signup(email, password):
     user = User.objects.create_user(email=email, password=password)
     access, refresh = issue_tokens(user)
     return user, access, refresh
+
+
+def create_first_cycle(user):
+    # TODO(CY-01): Cycle 앱이 생기면 김다은과 합의한 인터페이스로 교체.
+    # 예상 시그니처: create_first_cycle(user) -> Cycle
+    # User.current_cycle FK가 아직 없어서(마이그레이션 깨짐) 갱신도 그때 함께 처리.
+    pass
+
+
+def complete_onboarding(user):
+    if not user.onboarding_completed:
+        user.onboarding_completed = True
+        user.save(update_fields=["onboarding_completed"])
+        create_first_cycle(user)
+    return user

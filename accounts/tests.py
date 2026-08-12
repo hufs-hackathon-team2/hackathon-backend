@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.db import IntegrityError
 from django.test import TestCase
@@ -261,3 +262,45 @@ class CharacterSelectViewTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn("character_id", response.data)
+
+
+class OnboardingCompleteViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/users/me/onboarding-complete/"
+        self.user = User.objects.create_user(
+            email="onboard@example.com", password="correct-horse-battery"
+        )
+        login_response = self.client.post(
+            "/auth/login/",
+            {"email": "onboard@example.com", "password": "correct-horse-battery"},
+        )
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}"
+        )
+
+    def test_onboarding_complete_sets_flag_and_calls_create_first_cycle(self):
+        with patch("accounts.services.create_first_cycle") as mock_create_cycle:
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["onboarding_completed"], True)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.onboarding_completed)
+        mock_create_cycle.assert_called_once_with(self.user)
+
+    def test_onboarding_complete_without_auth_returns_401(self):
+        self.client.credentials()
+
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_onboarding_complete_is_idempotent(self):
+        with patch("accounts.services.create_first_cycle") as mock_create_cycle:
+            self.client.post(self.url)
+            response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["onboarding_completed"], True)
+        mock_create_cycle.assert_called_once()
