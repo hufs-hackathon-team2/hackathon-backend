@@ -70,4 +70,5 @@ class RefreshSerializer(serializers.Serializer):
 
         attrs["user"] = user
         attrs["jwt_token"] = jwt_token
+        attrs["db_token"] = db_token
         return attrs

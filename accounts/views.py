@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
@@ -68,3 +69,15 @@ class RefreshView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class LogoutView(APIView):
+    def post(self, request):
+        serializer = RefreshSerializer(data=request.data)
+        error_response = _validate_or_401(serializer)
+        if error_response:
+            return error_response
+        db_token = serializer.validated_data["db_token"]
+        db_token.revoked_at = timezone.now()
+        db_token.save(update_fields=["revoked_at"])
+        return Response(status=status.HTTP_204_NO_CONTENT)

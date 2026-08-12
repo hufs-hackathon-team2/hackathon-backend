@@ -177,3 +177,50 @@ class RefreshViewTests(TestCase):
         response = self.client.post(self.url, {"refresh_token": self.refresh_token})
 
         self.assertEqual(response.status_code, 401)
+
+
+class LogoutViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/auth/logout/"
+        self.user = User.objects.create_user(
+            email="logout@example.com", password="correct-horse-battery"
+        )
+        login_response = self.client.post(
+            "/auth/login/",
+            {"email": "logout@example.com", "password": "correct-horse-battery"},
+        )
+        self.refresh_token = login_response.data["refresh"]
+
+    def test_logout_revokes_token_and_returns_204(self):
+        response = self.client.post(self.url, {"refresh_token": self.refresh_token})
+
+        self.assertEqual(response.status_code, 204)
+        db_token = RefreshToken.objects.get(token=self.refresh_token)
+        self.assertIsNotNone(db_token.revoked_at)
+
+    def test_logout_with_garbage_token_returns_401(self):
+        response = self.client.post(self.url, {"refresh_token": "not-a-real-token"})
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_logout_twice_returns_401_second_time(self):
+        self.client.post(self.url, {"refresh_token": self.refresh_token})
+
+        response = self.client.post(self.url, {"refresh_token": self.refresh_token})
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_logout_does_not_revoke_other_sessions(self):
+        second_login_response = self.client.post(
+            "/auth/login/",
+            {"email": "logout@example.com", "password": "correct-horse-battery"},
+        )
+        second_refresh_token = second_login_response.data["refresh"]
+
+        self.client.post(self.url, {"refresh_token": self.refresh_token})
+
+        refresh_response = self.client.post(
+            "/auth/refresh/", {"refresh_token": second_refresh_token}
+        )
+        self.assertEqual(refresh_response.status_code, 200)
