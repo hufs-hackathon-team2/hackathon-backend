@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from .models import Quest
 
+### 퀘스트 시작 ###
+
 #POST 요청 body용
 class QuestCreateSerializer(serializers.ModelSerializer):
 
