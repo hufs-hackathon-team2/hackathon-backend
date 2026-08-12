@@ -22,11 +22,9 @@ def get_last_record_date(user: User) -> date | None:
     return max(candidates) if candidates else None
 
 
-def check_and_apply_rest_transition(user: User, today: date, source: str) -> bool:
+def check_and_apply_rest_transition(user: User, today: date) -> bool:
     """
     [C3/C4] ACTIVE -> RESTING
-
-    source: "batch" (매일 밤 자동 점검) | "app_entry" (앱 진입 시 보정)
 
     가드: user.cycle_state == ACTIVE AND (today - last_record_date).days >= 7
 
@@ -114,15 +112,12 @@ def handle_app_entry(user: User, today: date) -> bool:
     return False
 
 
-def get_resume_screen_data(user: User, previous_cycle: Cycle) -> list:
+def get_succeeded_quests(cycle: Cycle) -> list:
     """
-    [CY-05] C6 직후 노출되는 재개 팝업 데이터 구성.
-
-    - 제목/서브텍스트는 고정 문구
-    - 직전 성공(DONE) 퀘스트 조회 -> 추천 문구에 삽입
-    - 성공 퀘스트가 없는 경우의 fallback 문구 처리 필요
+    특정 사이클의 성공(DONE) 퀘스트 내용 목록 조회.
+    사용처: 재개 화면(CY-05), 사이클 종료 자동 분석(C5/C8), 사용자 분석 요청
     """
-    succeeded_quests = Quest.objects.filter(cycle_id=previous_cycle.id, state='DONE')
+    succeeded_quests = Quest.objects.filter(cycle_id=cycle.id, state='DONE')
 
     return [quest.quest_content for quest in succeeded_quests]
 
