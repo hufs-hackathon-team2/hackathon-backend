@@ -1,10 +1,16 @@
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .serializers import LoginSerializer, RefreshSerializer, SignupSerializer
+from .serializers import (
+    CharacterSelectSerializer,
+    LoginSerializer,
+    RefreshSerializer,
+    SignupSerializer,
+)
 from .services import issue_tokens, signup
 
 
@@ -81,3 +87,16 @@ class LogoutView(APIView):
         db_token.revoked_at = timezone.now()
         db_token.save(update_fields=["revoked_at"])
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CharacterSelectView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        serializer = CharacterSelectSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        request.user.character_id = serializer.validated_data["character_id"]
+        request.user.save(update_fields=["character_id"])
+        return Response(
+            {"character_id": request.user.character_id}, status=status.HTTP_200_OK
+        )

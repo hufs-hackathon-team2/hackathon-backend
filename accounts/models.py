@@ -30,6 +30,9 @@ class User(AbstractBaseUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     # TODO: current_cycle FK (CY-01 이후 추가)
+    # NOTE(ON-02): Character(CH) 앱이 아직 없어서 임시로 FK 없는 정수 필드로 둠.
+    # CH 앱이 생기면 한서연과 협의해서 ForeignKey('characters.Character')로 전환.
+    character_id = models.PositiveIntegerField(null=True, blank=True)
 
     USERNAME_FIELD = "email"
 

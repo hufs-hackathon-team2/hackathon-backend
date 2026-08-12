@@ -224,3 +224,40 @@ class LogoutViewTests(TestCase):
             "/auth/refresh/", {"refresh_token": second_refresh_token}
         )
         self.assertEqual(refresh_response.status_code, 200)
+
+
+class CharacterSelectViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/users/me/character/"
+        self.user = User.objects.create_user(
+            email="character@example.com", password="correct-horse-battery"
+        )
+        login_response = self.client.post(
+            "/auth/login/",
+            {"email": "character@example.com", "password": "correct-horse-battery"},
+        )
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}"
+        )
+
+    def test_select_character_updates_user(self):
+        response = self.client.patch(self.url, {"character_id": 3}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["character_id"], 3)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.character_id, 3)
+
+    def test_select_character_without_auth_returns_401(self):
+        self.client.credentials()
+
+        response = self.client.patch(self.url, {"character_id": 3}, format="json")
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_select_character_invalid_id_returns_400(self):
+        response = self.client.patch(self.url, {"character_id": 0}, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("character_id", response.data)
