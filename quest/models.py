@@ -5,14 +5,15 @@ from cycle.models import Cycle
 
 class Quest(models.Model):
     """
-    ERD: 퀘스트(Quest)
+    ERD: 퀘스트(Quest) - 2026-08-12 캡처 기준
 
-    - PK: Quest_ID (CHAR(10))
+    - PK: Quest_ID -> Django 기본 정수 PK(id)로 대체
     - State: ACTIVE, DONE, FAILED, ABANDONED 중 하나
     - Quest_Content: 퀘스트 내용
     - Lastchecked: 가장 최근 체크 날짜. 아직 한 번도 체크 안 했으면 NULL
     - Count: 완료 카운트. 0~3 범위 (DB 레벨 CHECK 제약 추가)
     - Cycle_ID: 소속 사이클 FK (비식별 관계 -> PK에 포함되지 않음)
+    - Started_At: 퀘스트 시작일 (Q1에서 기록, D-day/Q5 FAILED 판정 기준)
     """
 
     class State(models.TextChoices):
@@ -21,7 +22,7 @@ class Quest(models.Model):
         FAILED = "FAILED", "실패"
         ABANDONED = "ABANDONED", "포기"
 
-    '''quest_ID는 장고에서 기본 생성한 PK로 대체'''
+    # Quest_ID는 Django에서 기본 생성한 PK(id, 정수)로 대체
 
     state = models.CharField(
         max_length=9,
@@ -46,6 +47,9 @@ class Quest(models.Model):
         on_delete=models.CASCADE,
         db_column="Cycle_ID",
         related_name="quests",
+    )
+    started_at = models.DateField(
+        db_column="Started_At",
     )
 
     class Meta:
