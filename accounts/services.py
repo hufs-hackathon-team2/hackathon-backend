@@ -1,7 +1,10 @@
+from django.conf import settings
 from django.db import transaction
 from django.db.models import F
+from django.utils import timezone
+from rest_framework_simplejwt.tokens import RefreshToken as JWTRefreshToken
 
-from .models import UserIdCounter
+from .models import RefreshToken, User, UserIdCounter
 
 
 def generate_user_id():
@@ -11,3 +14,18 @@ def generate_user_id():
         counter.save()
         counter.refresh_from_db()
         return f"USR{counter.last_number:07d}"
+
+
+def issue_tokens(user):
+    jwt_refresh = JWTRefreshToken.for_user(user)
+    access = str(jwt_refresh.access_token)
+    refresh = str(jwt_refresh)
+    expires_at = timezone.now() + settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
+    RefreshToken.objects.create(user=user, token=refresh, expires_at=expires_at)
+    return access, refresh
+
+
+def signup(email, password):
+    user = User.objects.create_user(email=email, password=password)
+    access, refresh = issue_tokens(user)
+    return user, access, refresh

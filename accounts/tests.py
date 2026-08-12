@@ -1,7 +1,8 @@
 from django.db import IntegrityError
 from django.test import TestCase
+from rest_framework.test import APIClient
 
-from .models import User
+from .models import RefreshToken, User
 from .services import generate_user_id
 
 
@@ -33,3 +34,44 @@ class UserManagerTests(TestCase):
         User.objects.create_user(email="dup@example.com", password="pw12345!")
         with self.assertRaises(IntegrityError):
             User.objects.create_user(email="dup@example.com", password="pw12345!")
+
+
+class SignupViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/auth/signup/"
+
+    def test_signup_creates_user_and_returns_tokens(self):
+        response = self.client.post(
+            self.url, {"email": "new@example.com", "password": "correct-horse-battery"}
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["email"], "new@example.com")
+        self.assertIn("access", response.data)
+        self.assertIn("refresh", response.data)
+        self.assertNotIn("password", response.data)
+
+        user = User.objects.get(email="new@example.com")
+        self.assertEqual(response.data["user_id"], user.user_id)
+        self.assertEqual(RefreshToken.objects.filter(user=user).count(), 1)
+        self.assertEqual(RefreshToken.objects.get(user=user).token, response.data["refresh"])
+
+    def test_signup_duplicate_email_returns_400(self):
+        User.objects.create_user(email="dup@example.com", password="correct-horse-battery")
+
+        response = self.client.post(
+            self.url, {"email": "dup@example.com", "password": "correct-horse-battery"}
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("email", response.data)
+
+    def test_signup_weak_password_returns_400(self):
+        response = self.client.post(
+            self.url, {"email": "new@example.com", "password": "1234"}
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("password", response.data)
+        self.assertFalse(User.objects.filter(email="new@example.com").exists())
