@@ -242,6 +242,15 @@ class RefreshViewTests(TestCase):
 
         self.assertEqual(response.status_code, 401)
 
+    def test_refresh_reflects_onboarding_completed_true(self):
+        self.user.onboarding_completed = True
+        self.user.save()
+
+        response = self.client.post(self.url, {"refresh_token": self.refresh_token})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["onboarding_completed"], True)
+
 
 class LogoutViewTests(TestCase):
     def setUp(self):
