@@ -37,7 +37,21 @@ def check_and_apply_rest_transition(user: User, today: date, source: str) -> boo
 
     반환: 전환이 실제로 일어났는지 여부
     """
-    pass
+    last_record_date = get_last_record_date(user)
+    current_cycle = user.current_cycle
+
+    if last_record_date and current_cycle:
+        if current_cycle.status == 'ACTIVE' and (today - last_record_date).days >= 7:
+            current_cycle.status = 'RESTING'          
+            current_cycle.rest_started_at = today
+            current_cycle.save(update_fields=['status', 'rest_started_at'])
+            return True  
+        else: return False
+    else:
+        return False
+
+
+
 
 
 def close_and_start_new_cycle(user: User, trigger_date: date, linked_record=None) -> Cycle | None:
