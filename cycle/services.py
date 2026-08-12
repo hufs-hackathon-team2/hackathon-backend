@@ -4,6 +4,8 @@ from django.utils import timezone
 from .models import User, Cycle, PlusLog, Quest
 from django.db import transaction
 
+######### 범용 함수 #########
+
 def get_last_record_date(user: User) -> date | None:
     #해당 유저의 플러스로그 마지막 기록일, 작심삼일퀘스트 마지막 시작일/체크일 조회
     #그중에서 가장 최근 날짜가 최근 기록일이 됨
@@ -21,17 +23,29 @@ def get_last_record_date(user: User) -> date | None:
 
     return max(candidates) if candidates else None
 
+def get_succeeded_quests(cycle: Cycle) -> list:
+    """
+    특정 사이클의 성공(DONE) 퀘스트 내용 목록 조회.
+    사용처: 재개 화면(CY-05), 사이클 종료 자동 분석(C5/C8), 사용자 분석 요청
+    """
+    succeeded_quests = Quest.objects.filter(cycle_id=cycle.id, state='DONE')
+
+    return [quest.quest_content for quest in succeeded_quests]
+
+
+######### 상태 전이 및 기능 구현 #########
 
 def check_and_apply_rest_transition(user: User, today: date) -> bool:
     """
-    [C3/C4] ACTIVE -> RESTING
+    상태 전이: [C3/C4] ACTIVE -> RESTING
+    기능 코드: CY-01 - 휴식기 판정
 
-    가드: user.cycle_state == ACTIVE AND (today - last_record_date).days >= 7
+    가드: current_cycle.state == ACTIVE AND (today - last_record_date).days >= 7
 
     처리:
-    - user.current_cycle_state -> RESTING
+    - current_cycle.state -> RESTING
     - 현재 Cycle에 휴식 시작일 기록
-    - 휴식기 알림 발송 + 발송 시각 기록 (C3, C4 동일 처리)
+    - TODO: 휴식기 알림 발송 + 발송 시각 기록 (C3, C4 동일 처리)
 
     반환: 전환이 실제로 일어났는지 여부
     """
@@ -43,20 +57,23 @@ def check_and_apply_rest_transition(user: User, today: date) -> bool:
             current_cycle.state = 'RESTING'          
             current_cycle.rest_started_at = today
             current_cycle.save(update_fields=['state', 'rest_started_at'])
-            return True  
+
+            #TODO: 휴식기 알림 발송 + 발송 시각 기록 (C3, C4 동일 처리)
+
+            return True
+          
         else: return False
     else:
         return False
 
 
-
-
-
 def close_and_start_new_cycle(user: User, trigger_date: date, linked_record=None) -> Cycle | None:
     """
-    [C5/C8 -> C6] RESTING -> CLOSED -> ACTIVE (하나의 트랜잭션)
+    상태 전이: [C5/C8 -> C6] RESTING -> CLOSED -> ACTIVE (하나의 트랜잭션)
+    기능 코드: CY-01 - 사이클 종료 / CY-05 - 사이클 재개
 
-    trigger: plus log 저장(C5) 또는 퀘스트 시작(C8)
+    trigger: plus log 저장(C5) - 유민님 연결 필요
+             or 퀘스트 시작(C8)
 
     가드: user.cycle_state == RESTING 인 경우에만 실행
           (RESTING -> ACTIVE 직접 전환 금지, 반드시 CLOSED를 거침)
@@ -96,10 +113,10 @@ def close_and_start_new_cycle(user: User, trigger_date: date, linked_record=None
 
 def handle_app_entry(user: User, today: date) -> bool:
     """
-    [C4/C7] 앱 진입 시 호출.
+    상태 전이: [C4/C7] 앱 진입 시 호출.
 
-    - user.cycle_state == ACTIVE 이고 7일 경과 -> check_and_apply_rest_transition 호출 (C4)
-    - user.cycle_state == RESTING -> 아무것도 하지 않고 그대로 유지 (C7)
+    - current_cycle.state == ACTIVE 이고 7일 경과 -> check_and_apply_rest_transition 호출 (C4)
+    - current_cycle.state == RESTING -> 아무것도 하지 않고 그대로 유지 (C7)
       (금지 전이: 앱 진입만으로 RESTING 종료 불가)
 
     반환: RESTING으로 전환되었는지 여부
@@ -112,17 +129,11 @@ def handle_app_entry(user: User, today: date) -> bool:
     return False
 
 
-def get_succeeded_quests(cycle: Cycle) -> list:
-    """
-    특정 사이클의 성공(DONE) 퀘스트 내용 목록 조회.
-    사용처: 재개 화면(CY-05), 사이클 종료 자동 분석(C5/C8), 사용자 분석 요청
-    """
-    succeeded_quests = Quest.objects.filter(cycle_id=cycle.id, state='DONE')
-
-    return [quest.quest_content for quest in succeeded_quests]
-
-
 def start_cycle_after_onboarding(user: User, today: date) -> Cycle | None:
+    """
+    상태 전이: [C1] 온보딩 후 첫번째 로그 기록 or 퀘스트 시작
+    """
+
     if user.current_cycle is not None:
         return None
 
