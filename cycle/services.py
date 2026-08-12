@@ -1,5 +1,6 @@
 # cycle_services.py
 from datetime import date
+from django.utils import timezone
 from .models import User, Cycle, PlusLog, Quest
 
 
@@ -30,7 +31,7 @@ def check_and_apply_rest_transition(user: User, today: date, source: str) -> boo
     가드: user.cycle_status == ACTIVE AND (today - last_record_date).days >= 7
 
     처리:
-    - user.cycle_status -> RESTING
+    - user.current_cycle_status -> RESTING
     - 현재 Cycle에 휴식 시작일 기록
     - 휴식기 알림 발송 + 발송 시각 기록 (C3, C4 동일 처리)
 
@@ -43,8 +44,7 @@ def close_and_start_new_cycle(user: User, trigger_date: date, linked_record=None
     """
     [C5/C8 -> C6] RESTING -> CLOSED -> ACTIVE (하나의 트랜잭션)
 
-    trigger: plus log 저장(C5) 또는 퀘스트 완료 체크(C8)
-    ⚠️ 어느 트리거인지 팀과 확정 필요 (기획 원문 vs 상태표 C8 불일치)
+    trigger: plus log 저장(C5) 또는 퀘스트 시작(C8)
 
     가드: user.cycle_status == RESTING 인 경우에만 실행
           (RESTING -> ACTIVE 직접 전환 금지, 반드시 CLOSED를 거침)
@@ -58,7 +58,7 @@ def close_and_start_new_cycle(user: User, trigger_date: date, linked_record=None
 
     반환: 새로 생성된 Cycle, 조건 미충족 시 None
     """
-    pass
+    
 
 
 def handle_app_entry(user: User, today: date) -> bool:
@@ -71,7 +71,12 @@ def handle_app_entry(user: User, today: date) -> bool:
 
     반환: RESTING으로 전환되었는지 여부
     """
-    pass
+    current_cycle = user.current_cycle
+
+    if current_cycle and current_cycle.status == 'ACTIVE':
+        return check_and_apply_rest_transition(user, today, 'app_entry')
+
+    return False
 
 
 def get_resume_screen_data(user: User) -> dict:
