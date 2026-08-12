@@ -111,3 +111,13 @@ class OnboardingCompleteView(APIView):
         return Response(
             {"onboarding_completed": user.onboarding_completed}, status=status.HTTP_200_OK
         )
+
+
+class SettingsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(
+            {"nickname": request.user.nickname, "email": request.user.email},
+            status=status.HTTP_200_OK,
+        )

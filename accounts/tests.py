@@ -367,3 +367,35 @@ class OnboardingCompleteViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["onboarding_completed"], True)
         mock_create_cycle.assert_called_once()
+
+
+class SettingsViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/settings/"
+        self.user = User.objects.create_user(
+            email="settings@example.com",
+            password="correct-horse-battery1",
+            nickname="말순이",
+        )
+        login_response = self.client.post(
+            "/auth/login/",
+            {"email": "settings@example.com", "password": "correct-horse-battery1"},
+        )
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}"
+        )
+
+    def test_get_settings_returns_account_info(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["nickname"], "말순이")
+        self.assertEqual(response.data["email"], "settings@example.com")
+
+    def test_get_settings_without_auth_returns_401(self):
+        self.client.credentials()
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 401)

@@ -6,6 +6,7 @@ from .views import (
     LogoutView,
     OnboardingCompleteView,
     RefreshView,
+    SettingsView,
     SignupView,
 )
 
@@ -22,4 +23,5 @@ urlpatterns = [
         OnboardingCompleteView.as_view(),
         name="onboarding-complete",
     ),
+    path("settings/", SettingsView.as_view(), name="settings"),
 ]
