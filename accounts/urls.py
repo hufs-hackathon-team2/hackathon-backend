@@ -6,6 +6,8 @@ from .views import (
     LogoutView,
     NotificationSettingsView,
     OnboardingCompleteView,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
     RefreshView,
     SettingsView,
     SignupView,
@@ -19,6 +21,14 @@ urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="login"),
     path("auth/refresh/", RefreshView.as_view(), name="refresh"),
     path("auth/logout/", LogoutView.as_view(), name="logout"),
+    path(
+        "auth/password-reset/", PasswordResetRequestView.as_view(), name="password-reset"
+    ),
+    path(
+        "auth/password-reset/confirm/",
+        PasswordResetConfirmView.as_view(),
+        name="password-reset-confirm",
+    ),
     path("users/me/character/", CharacterSelectView.as_view(), name="character-select"),
     path(
         "users/me/onboarding-complete/",

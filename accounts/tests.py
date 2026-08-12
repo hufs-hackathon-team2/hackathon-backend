@@ -1,12 +1,13 @@
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.core import mail
 from django.db import IntegrityError
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from .models import RefreshToken, User
+from .models import PasswordResetToken, RefreshToken, User
 from .services import generate_user_id
 
 
@@ -497,3 +498,100 @@ class WithdrawalViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 401)
+
+
+class PasswordResetRequestViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/auth/password-reset/"
+        self.user = User.objects.create_user(
+            email="reset@example.com", password="correct-horse-battery"
+        )
+
+    def test_existing_email_sends_mail_and_returns_200(self):
+        response = self.client.post(self.url, {"email": "reset@example.com"}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["reset@example.com"])
+        self.assertEqual(PasswordResetToken.objects.filter(user=self.user).count(), 1)
+
+    def test_nonexistent_email_returns_200_without_sending(self):
+        response = self.client.post(
+            self.url, {"email": "nobody@example.com"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+
+
+class PasswordResetConfirmViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/auth/password-reset/confirm/"
+        self.user = User.objects.create_user(
+            email="confirm@example.com", password="correct-horse-battery"
+        )
+        self.reset_token = PasswordResetToken.objects.create(
+            user=self.user,
+            token="valid-token",
+            expires_at=timezone.now() + timedelta(minutes=30),
+        )
+
+    def test_valid_token_updates_password_and_returns_200(self):
+        response = self.client.post(
+            self.url,
+            {"token": "valid-token", "new_password": "new-correct-1"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("new-correct-1"))
+        self.reset_token.refresh_from_db()
+        self.assertIsNotNone(self.reset_token.used_at)
+
+    def test_used_token_cannot_be_reused(self):
+        self.client.post(
+            self.url,
+            {"token": "valid-token", "new_password": "new-correct-1"},
+            format="json",
+        )
+
+        response = self.client.post(
+            self.url,
+            {"token": "valid-token", "new_password": "another-pw-2"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_expired_token_returns_400(self):
+        self.reset_token.expires_at = timezone.now() - timedelta(seconds=1)
+        self.reset_token.save()
+
+        response = self.client.post(
+            self.url,
+            {"token": "valid-token", "new_password": "new-correct-1"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_unknown_token_returns_400(self):
+        response = self.client.post(
+            self.url,
+            {"token": "does-not-exist", "new_password": "new-correct-1"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_weak_new_password_returns_400(self):
+        response = self.client.post(
+            self.url, {"token": "valid-token", "new_password": "1234"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("correct-horse-battery"))

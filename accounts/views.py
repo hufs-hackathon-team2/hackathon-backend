@@ -9,11 +9,19 @@ from .serializers import (
     CharacterSelectSerializer,
     LoginSerializer,
     NotificationSettingsSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
     RefreshSerializer,
     SignupSerializer,
     WithdrawalSerializer,
 )
-from .services import complete_onboarding, issue_tokens, signup
+from .services import (
+    complete_onboarding,
+    confirm_password_reset,
+    issue_tokens,
+    request_password_reset,
+    signup,
+)
 
 
 def _validate_or_401(serializer):
@@ -149,3 +157,21 @@ class WithdrawalView(APIView):
             return error_response
         request.user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PasswordResetRequestView(APIView):
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        request_password_reset(serializer.validated_data["email"])
+        return Response(status=status.HTTP_200_OK)
+
+
+class PasswordResetConfirmView(APIView):
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        confirm_password_reset(
+            serializer.validated_data["db_token"], serializer.validated_data["new_password"]
+        )
+        return Response(status=status.HTTP_200_OK)

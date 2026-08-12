@@ -8,7 +8,15 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken as JWTRefreshToken
 
-from .models import RefreshToken, User
+from .models import PasswordResetToken, RefreshToken, User
+
+
+def _validate_password_strength(value):
+    try:
+        validate_password(value)
+    except DjangoValidationError as e:
+        raise serializers.ValidationError(e.messages)
+    return value
 
 
 class SignupSerializer(serializers.Serializer):
@@ -22,11 +30,7 @@ class SignupSerializer(serializers.Serializer):
         return value
 
     def validate_password(self, value):
-        try:
-            validate_password(value)
-        except DjangoValidationError as e:
-            raise serializers.ValidationError(e.messages)
-        return value
+        return _validate_password_strength(value)
 
 
 class LoginSerializer(serializers.Serializer):
@@ -92,3 +96,26 @@ class WithdrawalSerializer(serializers.Serializer):
         if not user.check_password(value):
             raise AuthenticationFailed("비밀번호가 올바르지 않습니다.")
         return value
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value):
+        return _validate_password_strength(value)
+
+    def validate(self, attrs):
+        db_token = PasswordResetToken.objects.filter(
+            token=attrs["token"], used_at__isnull=True
+        ).first()
+        if db_token is None or db_token.expires_at <= timezone.now():
+            raise serializers.ValidationError(
+                {"token": "토큰이 유효하지 않거나 만료되었습니다."}
+            )
+        attrs["db_token"] = db_token
+        return attrs

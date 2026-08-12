@@ -59,6 +59,9 @@ REST_FRAMEWORK = {
     ],
 }
 
+# AU-05: 개발 중에는 실제 메일 발송 대신 콘솔 출력으로 대체
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
