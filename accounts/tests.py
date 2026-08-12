@@ -1,5 +1,8 @@
+from datetime import timedelta
+
 from django.db import IntegrityError
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from .models import RefreshToken, User
@@ -129,3 +132,48 @@ class LoginViewTests(TestCase):
         self.assertEqual(
             nonexistent_email_response.data["detail"], wrong_password_response.data["detail"]
         )
+
+
+class RefreshViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/auth/refresh/"
+        self.user = User.objects.create_user(
+            email="refresh@example.com", password="correct-horse-battery"
+        )
+        login_response = self.client.post(
+            "/auth/login/",
+            {"email": "refresh@example.com", "password": "correct-horse-battery"},
+        )
+        self.refresh_token = login_response.data["refresh"]
+
+    def test_refresh_returns_new_access_token(self):
+        response = self.client.post(self.url, {"refresh_token": self.refresh_token})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("access", response.data)
+        self.assertEqual(response.data["onboarding_completed"], False)
+        self.assertNotIn("refresh", response.data)
+
+    def test_refresh_with_garbage_token_returns_401(self):
+        response = self.client.post(self.url, {"refresh_token": "not-a-real-token"})
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_refresh_with_revoked_token_returns_401(self):
+        RefreshToken.objects.filter(token=self.refresh_token).update(
+            revoked_at=timezone.now()
+        )
+
+        response = self.client.post(self.url, {"refresh_token": self.refresh_token})
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_refresh_with_expired_db_row_returns_401(self):
+        RefreshToken.objects.filter(token=self.refresh_token).update(
+            expires_at=timezone.now() - timedelta(seconds=1)
+        )
+
+        response = self.client.post(self.url, {"refresh_token": self.refresh_token})
+
+        self.assertEqual(response.status_code, 401)

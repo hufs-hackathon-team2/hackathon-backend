@@ -1,10 +1,14 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
+from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import RefreshToken as JWTRefreshToken
 
-from .models import User
+from .models import RefreshToken, User
 
 
 class SignupSerializer(serializers.Serializer):
@@ -37,4 +41,33 @@ class LoginSerializer(serializers.Serializer):
         if user is None:
             raise AuthenticationFailed("이메일 또는 비밀번호가 올바르지 않습니다.")
         attrs["user"] = user
+        return attrs
+
+
+class RefreshSerializer(serializers.Serializer):
+    refresh_token = serializers.CharField()
+
+    def validate(self, attrs):
+        invalid_error = AuthenticationFailed("리프레시 토큰이 유효하지 않습니다.")
+        token_str = attrs["refresh_token"]
+
+        try:
+            jwt_token = JWTRefreshToken(token_str)
+        except TokenError:
+            raise invalid_error
+
+        db_token = RefreshToken.objects.filter(
+            token=token_str, revoked_at__isnull=True
+        ).first()
+        if db_token is None or db_token.expires_at <= timezone.now():
+            raise invalid_error
+
+        user_id = jwt_token[settings.SIMPLE_JWT["USER_ID_CLAIM"]]
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            raise invalid_error
+
+        attrs["user"] = user
+        attrs["jwt_token"] = jwt_token
         return attrs
