@@ -34,3 +34,11 @@ class User(AbstractBaseUser):
     USERNAME_FIELD = "email"
 
     objects = UserManager()
+
+
+class RefreshToken(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    token = models.CharField(max_length=200)
+    issued_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
