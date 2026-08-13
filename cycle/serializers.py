@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from .models import Cycle
 
-####### 이전 싸이클 분석 결과 제공 #######
-class FormerCycleAnalysisSerializer(serializers.ModelSerializer):
+####### 싸이클 분석 결과 제공 #######
+class CycleAnalysisSerializer(serializers.ModelSerializer):
     cycle_id = serializers.IntegerField(source = 'id', read_only = True)
     cycle_count = serializers.IntegerField(source = 'count', read_only = True)
 
