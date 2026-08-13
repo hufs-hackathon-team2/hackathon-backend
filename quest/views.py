@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
-from .serializers import QuestCreateSerializer, QuestResponseSerializer, CheckQuestSerializer, AbandonQuestSerializer
+from .serializers import QuestCreateSerializer, QuestResponseSerializer, CheckQuestSerializer, AbandonQuestSerializer, CurrentQuestSerializer
 from .models import Quest
 from datetime import date
 from cycle.services import close_and_start_new_cycle
@@ -53,9 +53,11 @@ class CheckQuestAPIView(APIView):
             response_serializer = CheckQuestSerializer(result)
             return Response(response_serializer.data, status=status.HTTP_200_OK)
         except InvalidTransition as e:
-            return Response({"error": "INVALID_STATE_TRANSITION", "message": str(e)}, status=status.HTTP_409_CONFLICT)
+            return Response({"error": "INVALID_STATE_TRANSITION", "message": str(e)}, 
+                            status=status.HTTP_409_CONFLICT)
         except QuestAlreadyChecked as e:
-            return Response({"error": "ALREADY_CHECKED_TODAY", "message": str(e)}, status=status.HTTP_409_CONFLICT)
+            return Response({"error": "ALREADY_CHECKED_TODAY", "message": str(e)}, 
+                            status=status.HTTP_409_CONFLICT)
 
 
 class AbandonQuestAPIView(APIView):
@@ -68,4 +70,17 @@ class AbandonQuestAPIView(APIView):
             response_serializer = AbandonQuestSerializer(result)
             return Response(response_serializer.data, status=status.HTTP_200_OK)
         except InvalidTransition as e:
-            return Response({"error": "INVALID_STATE_TRANSITION", "message": str(e)}, status=status.HTTP_409_CONFLICT)
+            return Response({"error": "INVALID_STATE_TRANSITION", "message": str(e)}, 
+                            status=status.HTTP_409_CONFLICT)
+
+class ActiveQuestsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        quests = Quest.objects.filter(
+            cycle__user_id_placeholder=request.user, 
+            state=Quest.State.ACTIVE
+        )
+
+        serializer = CurrentQuestSerializer(quests, many=True)
+        return Response({"active_quests": serializer.data}, status=status.HTTP_200_OK)
