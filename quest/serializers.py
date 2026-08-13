@@ -12,14 +12,16 @@ class QuestCreateSerializer(serializers.ModelSerializer):
 
 #POST 요청의 응답 body용
 class QuestResponseSerializer(serializers.ModelSerializer):
+    quest_id = serializers.IntegerField(source='id', read_only=True)
 
     class Meta:
         model = Quest
-        fields = ['id', 'quest_content', 'started_at']
+        fields = ['quest_id', 'quest_content', 'started_at']
 
 ####### 퀘스트 수행 체크 #######
 class CheckQuestSerializer(serializers.ModelSerializer):
+    quest_id = serializers.IntegerField(source='id', read_only=True)
 
     class Meta:
         model = Quest
-        fields = ['id', 'state', 'count', 'last_checked', 'quest_content']
+        fields = ['quest_id', 'state', 'count', 'last_checked', 'quest_content']
