@@ -25,3 +25,11 @@ class CheckQuestSerializer(serializers.ModelSerializer):
     class Meta:
         model = Quest
         fields = ['quest_id', 'state', 'count', 'last_checked', 'quest_content']
+
+####### 퀘스트 포기 #######
+class AbandonQuestSerializer(serializers.ModelSerializer):
+    quest_id = serializers.IntegerField(source='id', read_only=True)
+
+    class Meta:
+        model = Quest
+        fields = ['quest_id', 'state', 'count']

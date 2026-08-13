@@ -26,4 +26,14 @@ def check_for_quest(quest: Quest, today: date) -> Quest:
     quest.save()
 
     return quest
-        
+
+def abandon_quest(quest: Quest) -> Quest:
+
+    if quest.state == Quest.State.ACTIVE:
+        quest.state = Quest.State.ABANDONED
+    else:
+        raise InvalidTransition("ACTIVE 상태의 퀘스트만 포기할 수 있습니다")
+
+    quest.save(update_fields=['state'])
+
+    return quest
