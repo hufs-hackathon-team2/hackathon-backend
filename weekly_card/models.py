@@ -46,6 +46,15 @@ class WeeklyAnalysis(models.Model):
         auto_now_add=True,
         db_column="Created_At",
     )
+    rest_NT_content = models.CharField(
+        max_length=200,
+        db_column="Rest_NT_Content",
+        blank=True
+    )
+    analysis = models.TextField(
+        blank=True, #Django Admin이나 폼에서 이 필드를 입력 안 하고 저장해도 "필수 항목입니다" 에러가 안 뜨게 허용
+        db_column="Analysis",
+    )
 
     class Meta:
         db_table = "weekly_analysis"
@@ -83,7 +92,6 @@ class RecommendedQuest(models.Model):
     )
     reason = models.CharField(
         max_length=200,
-        null=True,
         blank=True,
         db_column="Reason",
     )
