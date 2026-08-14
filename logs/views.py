@@ -149,3 +149,21 @@ def get_log_list(request):
 
     except Exception as e:
         return JsonResponse({'error': '유효하지 않은 요청입니다'}, status=400)
+
+
+# LG-04. 기록 삭제
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def delete_log(request, log_id):
+    try:
+        log_entry = PlusLog.objects.get(log_id=log_id, deleted_at__isnull=True)
+
+        log_entry.deleted_at = timezone.now()
+        log_entry.save()
+
+        return JsonResponse({'message': '로그 삭제 성공'}, status=200)
+
+    except PlusLog.DoesNotExist:
+        return JsonResponse({'error': '존재하지 않는 로그입니다.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': '로그 삭제 중 오류 발생'}, status=500)
