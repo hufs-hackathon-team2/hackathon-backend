@@ -5,7 +5,7 @@ from cycle.models import Cycle
 
 class Quest(models.Model):
     """
-    ERD: 퀘스트(Quest)
+    ERD: 퀘스트(Quest) - 2026-08-12 캡처 기준
 
     - PK: Quest_ID -> Django 기본 정수 PK(id)로 대체
     - state: ACTIVE, DONE, FAILED, ABANDONED 중 하나

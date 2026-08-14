@@ -4,8 +4,6 @@ from django.db import models
 
 class Cycle(models.Model):
     """
-    ERD: 사이클(Cycle) - 2026-08-14 캡처 기준
-
     - PK: Cycle_ID -> Django 기본 정수 PK(id)로 대체
     - user: accounts.User 모델과 FK로 연결
     - state: ACTIVE, RESTING, CLOSED 중 하나
