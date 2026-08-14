@@ -5,19 +5,16 @@ from django.db import models
 class Cycle(models.Model):
     """
     - PK: Cycle_ID -> Django 기본 정수 PK(id)로 대체
-    - User_ID: 아직 User 모델이 없어 FK를 걸지 못하는 상태.
-        TODO: User 모델 생성 후 아래 user 필드를
-        models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, ...)
-        로 교체하고 이 IntegerField는 삭제할 것.
-    - State: ACTIVE, RESTING, CLOSED 중 하나
-    - Analysis: AI가 사이클 종료 시 생성한 요약 분석 텍스트 (nullable)
-    - Count: 해당 사용자의 몇 번째 사이클인지 (C1/C6에서 생성 시 계산해서 채움)
-    - Last_Updated_At: 마지막 기록 시각 (C2/C3/C4 가드 조건 판정 기준)
-    - Closed_At: 종료일 (C5/C8에서 기록)
-    - Rest_Started_At: 휴식 시작일 (C3/C4에서 기록)
-    - Notified_At: 휴식기 알림 발송 시각 (C3/C4에서 기록)
-    - Started_At: 사이클 시작일 (C1에서 기록)
-    - Analysis_Request_Count: AI 분석 요청 횟수, 0~3 (DB 레벨 제약 포함)
+    - user: accounts.User 모델과 FK로 연결
+    - state: ACTIVE, RESTING, CLOSED 중 하나
+    - analysis: AI가 사이클 종료 시 생성한 요약 분석 텍스트 (nullable)
+    - count: 해당 사용자의 몇 번째 사이클인지
+    - last_updated_at: 마지막 기록 시각 (nullable)
+    - closed_at: 종료일 (nullable)
+    - rest_started-at: 휴식 시작일 (nullable)
+    - notified_at: 휴식기 알림 발송 시각 (nullable)
+    - started_at: 사이클 시작일
+    - analysis_request_count: AI 분석 요청 횟수, 0~3 (DB 레벨 제약 포함)
     """
 
     class State(models.TextChoices):
@@ -27,30 +24,31 @@ class Cycle(models.Model):
 
     # Cycle_ID는 Django에서 기본 생성한 PK(id, 정수)로 대체
 
-    # TODO: User 모델 생성 후 FK로 교체
-    # user = models.ForeignKey(
-    #     settings.AUTH_USER_MODEL,
-    #     on_delete=models.CASCADE,
-    #     related_name="cycles",  # 역참조를 할 때 사용할 이름 지정
-    # )
-    
-    user_id_placeholder = models.IntegerField(
-        help_text="임시 필드. User 모델 생성 후 user FK로 교체 예정",
+    user = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.CASCADE,
+        related_name="cycles",
     )
+
     state = models.CharField(
         max_length=7,
         choices=State.choices,
     )
+
     analysis = models.JSONField(
-        default=dict,
         null=True,
         blank=True,
     )
-    count = models.PositiveSmallIntegerField()
+
+    count = models.PositiveSmallIntegerField(
+        default=1,
+    )
+
     last_updated_at = models.DateField(
         null=True,
         blank=True,
     )
+
     closed_at = models.DateField(
         null=True,
         blank=True,
@@ -63,7 +61,10 @@ class Cycle(models.Model):
         null=True,
         blank=True,
     )
-    started_at = models.DateField()
+
+    started_at = models.DateField(
+    )
+
     analysis_request_count = models.PositiveSmallIntegerField(
         default=0,
     )
@@ -72,6 +73,7 @@ class Cycle(models.Model):
         db_table = "cycle"
         verbose_name = "사이클"
         verbose_name_plural = "사이클 목록"
+        ordering = ['-started_at']
         constraints = [
             models.CheckConstraint(
                 check=models.Q(analysis_request_count__gte=0)
