@@ -37,6 +37,7 @@ class Quest(models.Model):
     )
     quest_content = models.CharField(
         max_length=200,
+        blank=False
     )
     last_checked = models.DateField(
         null=True,

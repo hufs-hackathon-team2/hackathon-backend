@@ -4,7 +4,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from .serializers import QuestCreateSerializer, QuestResponseSerializer, CheckQuestSerializer, AbandonQuestSerializer, CurrentQuestSerializer, AIRecommendationResponseSerializer, AllQuestsOfCycleResponseSerializer
 from .models import Quest
-from account.models import User
+from accounts.models import User
+from logs.models import PlusLog
 from cycle.models import Cycle
 from weekly_card.models import RecommendedQuest
 from datetime import date, timedelta
@@ -22,9 +23,17 @@ class StartQuestAPIView(APIView):
 
         #동일 퀘스트가 진행중인지 판정
         quest_content = create_serializer.validated_data['quest_content']
-        active_quests = Quest.objects.filter(user=request.user, state='ACTIVE')
-        if quest_content in [q.quest_content for q in active_quests]:
-            return Response(status=status.HTTP_409_CONFLICT)
+        
+        is_duplicate = Quest.objects.filter(
+            user=request.user,
+            state=Quest.State.ACTIVE,
+            quest_content=quest_content,
+        ).exists()
+        if is_duplicate:
+            return Response(
+                {"detail": "같은 내용으로 진행중인 사이클이 있습니다."},
+                status=status.HTTP_409_CONFLICT
+            )
 
         if request.user.current_cycle is None:
             return Response(
@@ -50,7 +59,7 @@ class CheckQuestAPIView(APIView):
 
     def post(self, request, quest_id):
 
-        quest = get_object_or_404(Quest, id=quest_id, cycle__user_id_placeholder=request.user)
+        quest = get_object_or_404(Quest, id=quest_id, user=request.user)
         try:
             result = check_for_quest(quest, date.today())
             response_serializer = CheckQuestSerializer(result)
@@ -67,7 +76,7 @@ class AbandonQuestAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, quest_id):
-        quest = get_object_or_404(Quest, id=quest_id, cycle__user_id_placeholder=request.user)
+        quest = get_object_or_404(Quest, id=quest_id, user=request.user)
         try:
             result = abandon_quest(quest)
             response_serializer = AbandonQuestSerializer(result)
@@ -81,7 +90,7 @@ class ActiveQuestsAPIView(APIView):
 
     def get(self, request):
         quests = Quest.objects.filter(
-            cycle__user_id_placeholder=request.user, 
+            user=request.user, 
             state=Quest.State.ACTIVE
         )
 
@@ -104,7 +113,7 @@ class AIRecommendationResponseAPIView(APIView):
             'has_recommendations': recommended_quests.exists(),
             'week_start': last_monday,
             'recommended_quests': recommended_quests,
-            'plus_log_count': Plus_log.objects.filter(
+            'plus_log_count': PlusLog.objects.filter(
                 user = user,
                 created_at__gte=last_monday,
                 created_at__lt=last_monday+timedelta(days=7),
@@ -118,8 +127,8 @@ class AIRecommendationResponseAPIView(APIView):
 class QuestSuccessAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    #def get(self, request):
-    #TODO: ERD 수정 후 다시
+    def get(self, request):
+        pass #TODO
 
 class AllQuestsOfCycleAPIView(APIView):
     permission_classes = [IsAuthenticated]
