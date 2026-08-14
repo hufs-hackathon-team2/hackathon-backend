@@ -35,20 +35,19 @@ class Cycle(models.Model):
         db_column="User_ID",
         related_name="cycles",
     )
-    user_id_placeholder = models.IntegerField(
-        db_column="User_ID",
-        help_text="임시 필드. User 모델 생성 후 user FK로 교체 예정",
-    )
+
     state = models.CharField(
         max_length=7,
         choices=State.choices,
         db_column="State",
     )
-    analysis = models.TextField(
+
+    analysis = models.JSONField(
         null=True,
         blank=True,
         db_column="Analysis",
     )
+    
     count = models.PositiveSmallIntegerField(
         db_column="Count",
     )
