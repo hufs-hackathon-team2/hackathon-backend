@@ -23,7 +23,7 @@ def get_last_record_date(user: User) -> date | None:
     #그중에서 가장 최근 날짜가 최근 기록일이 됨
     last_plus_log = PlusLog.objects.filter(user=user).order_by("-created_at").first()
     last_quest_start = Quest.objects.filter(cycle__user=user).order_by("-started_at").first()
-    last_quest_check = Quest.objects.filter(cycle__user=user).order_by("-last_checked").first()
+    last_quest_check = Quest.objects.filter(cycle__user=user, last_checked__isnull=False).order_by("-last_checked").first()
 
     candidates = [
         last_plus_log.created_at.date() if last_plus_log else None,
@@ -76,7 +76,7 @@ def check_and_apply_rest_transition(user: User, today: date) -> bool:
     return True
 
 
-def close_and_start_new_cycle(user: User, trigger_date: date, linked_record: PlusLog | Quest | None) -> Cycle | None:
+def close_and_start_new_cycle(user: User, trigger_date: date, linked_record: PlusLog | Quest | None = None) -> Cycle | None:
     """
     상태 전이: [C5/C8 -> C6] RESTING -> CLOSED -> ACTIVE (하나의 트랜잭션)
     기능 코드: CY-01 - 사이클 종료 / CY-05 - 사이클 재개
@@ -222,7 +222,14 @@ def _call_ai_cycle_analysis(stats: dict) -> dict:
                 ],
             )
             raw_text = response.choices[0].message.content
-            return json.loads(raw_text)
+
+            result = json.loads(raw_text)
+
+            if not isinstance(result.get("activity_analysis"), list) or \
+                not isinstance(result.get("personalized_analysis"), list):
+                raise ValueError(f"AI 응답 구조 불일치: {result}")
+
+            return result
 
         except json.JSONDecodeError as e:
             last_error = e
@@ -233,3 +240,25 @@ def _call_ai_cycle_analysis(stats: dict) -> dict:
             logger.warning("AI 호출 실패 (attempt %d): %s", attempt, e)
 
     raise AIAnalysisError(f"AI 호출 {MAX_RETRIES}회 재시도 후 최종 실패: {last_error}")
+
+def generate_cycle_analysis(user, cycle: Cycle) -> dict | None:
+
+    if cycle.analysis_request_count >= 3:
+        logger.warning("유저 %s 사이클 %s 분석 요청 횟수 초과", user.id, cycle.id)
+        return None
+
+    stats = _collect_cycle_stats(cycle)
+
+    try:
+        ai_result = _call_ai_cycle_analysis(stats)
+    except AIAnalysisError:
+        logger.error("유저 %s 사이클 분석 실패", user.id)
+        return None
+
+    with transaction.atomic():
+        cycle.analysis = ai_result
+        cycle.analysis_request_count += 1
+        cycle.save(update_fields=['analysis', 'analysis_request_count'])
+
+    return ai_result
+

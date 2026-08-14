@@ -194,7 +194,7 @@ def run_weekly_batch(week_start: date) -> None:
     week_start = date.today() -timedelta(days=6)
 
     for user in all_users:
-        count_plus_logs = Plus_Log.objects.filter( #TODO: 실제 플러스로그 모델과 연결 필요 
+        count_plus_logs = PlusLog.objects.filter( #TODO: 실제 플러스로그 모델과 연결 필요 
             user=user,
             created_at__gte=week_start,
             created_at__lte=date.today()).count()
