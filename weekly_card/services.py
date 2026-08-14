@@ -1,14 +1,14 @@
 import json
 import logging
-from datetime import date, timedelta
+from django.utils import timezone
+from datetime import datetime, time, timedelta, date
 
 from django.conf import settings
 from django.db import transaction
 
 from quest.models import Quest
-#TODO: 추후 실제 유저, 플러스로그 모델 연결
-from account.models import User
-from plus_log.models import Plus_Log 
+from accounts.models import User
+from logs.models import PlusLog 
 from weekly_card.models import RecommendedQuest, WeeklyAnalysis
 
 logger = logging.getLogger(__name__)
@@ -37,10 +37,16 @@ def _collect_weekly_stats(user, week_start: date, week_end: date) -> dict:
         state=Quest.State.DONE,
         last_checked__range=(week_start, week_end),
     )
+    
+    plus_logs = PlusLog.objects.filter(
+        user=user, created_at__date__gte=week_start,
+        created_at__date__lt=week_end
+        )
+
 
     return {
         "quest_titles": [q.quest_content for q in succeeded_quests],
-        # TODO: plus_log_count, 디바이스 헬스 데이터 등 추가
+        "plus_logs": [log.content for log in plus_logs],
     }
 
 
@@ -67,7 +73,7 @@ def _call_ai_weekly_analysis(stats: dict) -> dict:
     - 문장은 짧고 다정하게, 존댓말을 사용하되 딱딱하지 않게 작성합니다.
     - 이모지는 사용하지 않습니다.
 
-    [작성 규칙]
+    [작성 항목]
     1. "이번 주 한 줄 총평"
     - 이번 주 PLUS Log 기록과 성공한 작심삼일 퀘스트 내용을 근거로 작성합니다.
     - 반드시 사용자의 실제 행동에 기반한 구체적인 문장이어야 하며, 뻔한 응원 문구("파이팅!")만 반복하지 않습니다.

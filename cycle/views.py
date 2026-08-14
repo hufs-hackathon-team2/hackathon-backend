@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 from .models import Cycle, User
 from rest_framework.response import Response
 from .serializers import CycleAnalysisSerializer
+from weekly_card.services import AIAnalysisError
 
 
 
@@ -48,8 +49,8 @@ class GetCurrentCycleAnalysis(APIView):
 
         try:
             #TODO: AI호출해서 분석 받아오는 함수 구현 (services.py)
-            result = request_current_cycle_analysis(target_cycle)
-        except: #TODO: AI호출 함수에서 에러 커스텀해서 여기 넣기
+            result = request_cycle_analysis(target_cycle)
+        except AIAnalysisError:
             return Response(
                 {"error": "AI 서비스를 실행할 수 없습니다."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
