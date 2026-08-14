@@ -170,9 +170,18 @@ def generate_weekly_analysis(user, week_start: date) -> WeeklyAnalysis | None:
             week_start=week_start,
             week_end=week_end,
             analysis=ai_result.get("weekly_summary", ""),
-            rest_NT_content=ai_result.get("rest_message", "")
+            rest_NT_content=ai_result.get("rest_message", ""),
             # TODO: plus_log_count, success_quest_count, active_days 채우기 (stats에서)
+            plus_log_count = PlusLog.objects.filter(
+                        user=user,
+                        created_at__date__gte=week_start,
+                        created_at__date__lt=date.today()).count(),
+            success_quest_count = Quest.objects.filter(
+                        cycle__user=user,
+                        state=Quest.State.DONE,
+                        last_checked__date__lt=date.today()).count()
         )
+        
 
         for item in ai_result.get("recommended_quests", []):
             RecommendedQuest.objects.create(
@@ -194,12 +203,12 @@ def run_weekly_batch(week_start: date) -> None:
     week_start = date.today() -timedelta(days=6)
 
     for user in all_users:
-        count_plus_logs = PlusLog.objects.filter( #TODO: 실제 플러스로그 모델과 연결 필요 
-            user=user,
-            created_at__gte=week_start,
-            created_at__lte=date.today()).count()
+        plus_log_count = PlusLog.objects.filter(
+                        user=user,
+                        created_at__date__gte=week_start,
+                        created_at__date__lt=date.today()).count()
 
-        if count_plus_logs < 3: continue
+        if plus_log_count < 3: continue
 
         try:
             generate_weekly_analysis(user, week_start)
