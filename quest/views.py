@@ -2,9 +2,12 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
-from .serializers import QuestCreateSerializer, QuestResponseSerializer, CheckQuestSerializer, AbandonQuestSerializer
+from .serializers import QuestCreateSerializer, QuestResponseSerializer, CheckQuestSerializer, AbandonQuestSerializer, CurrentQuestSerializer, AIRecommendationResponseSerializer, AllQuestsOfCycleResponseSerializer
 from .models import Quest
-from datetime import date
+from account.models import User
+from cycle.models import Cycle
+from weekly_card.models import RecommendedQuest
+from datetime import date, timedelta
 from cycle.services import close_and_start_new_cycle
 from quest.services import check_for_quest, InvalidTransition, QuestAlreadyChecked, abandon_quest
 from rest_framework.permissions import IsAuthenticated
@@ -53,9 +56,11 @@ class CheckQuestAPIView(APIView):
             response_serializer = CheckQuestSerializer(result)
             return Response(response_serializer.data, status=status.HTTP_200_OK)
         except InvalidTransition as e:
-            return Response({"error": "INVALID_STATE_TRANSITION", "message": str(e)}, status=status.HTTP_409_CONFLICT)
+            return Response({"error": "INVALID_STATE_TRANSITION", "message": str(e)}, 
+                            status=status.HTTP_409_CONFLICT)
         except QuestAlreadyChecked as e:
-            return Response({"error": "ALREADY_CHECKED_TODAY", "message": str(e)}, status=status.HTTP_409_CONFLICT)
+            return Response({"error": "ALREADY_CHECKED_TODAY", "message": str(e)}, 
+                            status=status.HTTP_409_CONFLICT)
 
 
 class AbandonQuestAPIView(APIView):
@@ -68,4 +73,73 @@ class AbandonQuestAPIView(APIView):
             response_serializer = AbandonQuestSerializer(result)
             return Response(response_serializer.data, status=status.HTTP_200_OK)
         except InvalidTransition as e:
-            return Response({"error": "INVALID_STATE_TRANSITION", "message": str(e)}, status=status.HTTP_409_CONFLICT)
+            return Response({"error": "INVALID_STATE_TRANSITION", "message": str(e)}, 
+                            status=status.HTTP_409_CONFLICT)
+
+class ActiveQuestsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        quests = Quest.objects.filter(
+            cycle__user_id_placeholder=request.user, 
+            state=Quest.State.ACTIVE
+        )
+
+        serializer = CurrentQuestSerializer(quests, many=True)
+        return Response({"active_quests": serializer.data}, status=status.HTTP_200_OK)
+
+class AIRecommendationResponseAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        last_monday = date.today() - timedelta(days=date.today().weekday() + 7)
+        user = request.user
+        #직전 주의 주간 분석 레코드와 연결된 추천퀘스트 레코드를 가져와야 함
+        recommended_quests = RecommendedQuest.objects.filter(
+            weekly_analysis__user=user, 
+            weekly_analysis__week_start=last_monday
+        )
+
+        data = {
+            'has_recommendations': recommended_quests.exists(),
+            'week_start': last_monday,
+            'recommended_quests': recommended_quests,
+            'plus_log_count': Plus_log.objects.filter(
+                user = user,
+                created_at__gte=last_monday,
+                created_at__lt=last_monday+timedelta(days=7),
+            ).count(),
+            'required_log_count' : 2
+        }
+        response_serializer = AIRecommendationResponseSerializer(data)
+
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+class QuestSuccessAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    #def get(self, request):
+    #TODO: ERD 수정 후 다시
+
+class AllQuestsOfCycleAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, cycle_id):
+        target_cycle = get_object_or_404(Cycle, id=cycle_id)
+
+        if target_cycle.user != request.user:
+            return Response({"error": "요청한 사용자의 사이클이 아닙니다."}, 
+                            status=status.HTTP_403_FORBIDDEN)
+
+        all_quests_of_cycle = Quest.objects.filter(
+            cycle = target_cycle,
+        )
+
+        data = {
+            "cycle_id": target_cycle.id,
+            "quests": all_quests_of_cycle
+        }
+
+        response_serializer = AllQuestsOfCycleResponseSerializer(data)
+
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
