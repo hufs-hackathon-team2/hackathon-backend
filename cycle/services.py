@@ -1,8 +1,11 @@
 # cycle_services.py
 from datetime import date, timedelta
 from django.utils import timezone
-from .models import User, Cycle, PlusLog, Quest
+from .models import Cycle
 from django.db import transaction
+from quest.models import Quest
+from accounts.models import User
+from logs.models import PlusLog
 
 ######### 범용 함수 #########
 
@@ -10,8 +13,8 @@ def get_last_record_date(user: User) -> date | None:
     #해당 유저의 플러스로그 마지막 기록일, 작심삼일퀘스트 마지막 시작일/체크일 조회
     #그중에서 가장 최근 날짜가 최근 기록일이 됨
     last_plus_log = PlusLog.objects.filter(user=user).order_by("-created_at").first()
-    last_quest_start = Quest.objects.filter(user=user).order_by("-started_at").first()
-    last_quest_check = Quest.objects.filter(user=user).order_by("-last_checked").first()
+    last_quest_start = Quest.objects.filter(cycle__user=user).order_by("-started_at").first()
+    last_quest_check = Quest.objects.filter(cycle__user=user).order_by("-last_checked").first()
 
     candidates = [
         last_plus_log.created_at.date() if last_plus_log else None,
@@ -28,7 +31,7 @@ def get_succeeded_quests(cycle: Cycle) -> list:
     특정 사이클의 성공(DONE) 퀘스트 내용 목록 조회.
     사용처: 재개 화면(CY-05), 사이클 종료 자동 분석(C5/C8), 사용자 분석 요청
     """
-    succeeded_quests = Quest.objects.filter(cycle_id=cycle.id, state='DONE')
+    succeeded_quests = Quest.objects.filter(cycle=cycle, state='DONE')
 
     return [quest.quest_content for quest in succeeded_quests]
 
@@ -40,31 +43,27 @@ def check_and_apply_rest_transition(user: User, today: date) -> bool:
     상태 전이: [C3/C4] ACTIVE -> RESTING
     기능 코드: CY-01 - 휴식기 판정
 
-    가드: current_cycle.state == ACTIVE AND (today - last_record_date).days >= 7
-
-    처리:
-    - current_cycle.state -> RESTING
-    - 현재 Cycle에 휴식 시작일 기록
-    - TODO: 휴식기 알림 발송 + 발송 시각 기록 (C3, C4 동일 처리)
-
-    반환: 전환이 실제로 일어났는지 여부
+]   TODO: 휴식기 알림 발송 + 발송 시각 기록 (C3, C4 동일 처리)
     """
     last_record_date = get_last_record_date(user)
     current_cycle = user.current_cycle
 
-    if last_record_date and current_cycle:
-        if current_cycle.state == 'ACTIVE' and (today - last_record_date).days >= 7:
-            current_cycle.state = 'RESTING'          
-            current_cycle.rest_started_at = today
-            current_cycle.save(update_fields=['state', 'rest_started_at'])
-
-            #TODO: 휴식기 알림 발송 + 발송 시각 기록 (C3, C4 동일 처리)
-
-            return True
-          
-        else: return False
-    else:
+    if not last_record_date or not current_cycle:
         return False
+
+    if current_cycle.state != Cycle.State.ACTIVE:
+        return False
+
+    if (today - last_record_date).days < 7:
+        return False
+
+    current_cycle.state = Cycle.State.RESTING
+    current_cycle.rest_started_at = today
+    current_cycle.save(update_fields=['state', 'rest_started_at'])
+
+    # TODO: 휴식기 알림 발송 + 발송 시각 기록 (C3, C4 동일 처리)
+
+    return True
 
 
 def close_and_start_new_cycle(user: User, trigger_date: date, linked_record=None) -> Cycle | None:
@@ -130,7 +129,7 @@ def handle_app_entry(user: User, today: date) -> bool:
     current_cycle = user.current_cycle
 
     if current_cycle and current_cycle.state == 'ACTIVE':
-        return check_and_apply_rest_transition(user, today, 'app_entry')
+        return check_and_apply_rest_transition(user, today)
 
     return False
 
