@@ -62,5 +62,5 @@ class GetCurrentCycleAnalysis(APIView):
         target_cycle.save(update_fields=['analysis', 'analysis_request_count'])
 
         response_serializer = CycleAnalysisSerializer(target_cycle)
-        return Response(response_serializer.data, status=status.HTTP_200_OK)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
     
