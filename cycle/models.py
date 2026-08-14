@@ -29,13 +29,12 @@ class Cycle(models.Model):
 
     # Cycle_ID는 Django에서 기본 생성한 PK(id, 정수)로 대체
 
-    # TODO: User 모델 생성 후 FK로 교체
-    # user = models.ForeignKey(
-    #     settings.AUTH_USER_MODEL,
-    #     on_delete=models.CASCADE,
-    #     db_column="User_ID",
-    #     related_name="cycles",  # 역참조를 할 때 사용할 이름 지정
-    # )
+    user = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.CASCADE,
+        db_column="User_ID",
+        related_name="cycles",
+    )
     user_id_placeholder = models.IntegerField(
         db_column="User_ID",
         help_text="임시 필드. User 모델 생성 후 user FK로 교체 예정",
