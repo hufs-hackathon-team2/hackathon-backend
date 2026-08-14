@@ -51,9 +51,10 @@ class WeeklyAnalysis(models.Model):
         db_column="Rest_NT_Content",
         blank=True
     )
-    analysis = models.TextField(
-        blank=True, #Django Admin이나 폼에서 이 필드를 입력 안 하고 저장해도 "필수 항목입니다" 에러가 안 뜨게 허용
-        db_column="Analysis",
+    analysis = models.JSONField(
+        default=dict,
+        null=True,
+        blank=True,
     )
 
     class Meta:
@@ -75,9 +76,6 @@ class WeeklyAnalysis(models.Model):
 class RecommendedQuest(models.Model):
     """
     위클리 분석 배치가 함께 생성하는 추천 퀘스트 항목.
-
-    - GET /quests/recommended 는 quest_content만 사용
-    - GET /weekly-card 는 quest_content + reason 함께 사용
     """
 
     weekly_analysis = models.ForeignKey(

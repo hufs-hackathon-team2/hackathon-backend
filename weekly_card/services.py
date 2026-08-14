@@ -101,7 +101,7 @@ def _call_ai_weekly_analysis(stats: dict) -> dict:
         {"title": "string", "subtitle": "string"},
         {"title": "string", "subtitle": "string"}
     ],
-    "rest_message": "string"
+    "rest_NT_content": "string"
     }
     """
 
