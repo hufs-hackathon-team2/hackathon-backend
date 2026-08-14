@@ -23,7 +23,7 @@ class StartQuestAPIView(APIView):
 
         #동일 퀘스트가 진행중인지 판정
         quest_content = create_serializer.validated_data['quest_content']
-        
+
         is_duplicate = Quest.objects.filter(
             user=request.user,
             state=Quest.State.ACTIVE,
@@ -127,8 +127,11 @@ class AIRecommendationResponseAPIView(APIView):
 class QuestSuccessAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        pass #TODO
+    def get(self, request, quest_id):
+        #quest = get_object_or_404(Quest, id=quest_id)
+        pass
+        #TODO: 캐릭터 성장 모델 만들어지면 구현
+
 
 class AllQuestsOfCycleAPIView(APIView):
     permission_classes = [IsAuthenticated]
