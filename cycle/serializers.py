@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Cycle
+from logs.models import PlusLog
 
 ####### 싸이클 분석 결과 제공 #######
 class CycleAnalysisSerializer(serializers.ModelSerializer):
@@ -12,7 +13,7 @@ class CycleAnalysisSerializer(serializers.ModelSerializer):
     activity_analysis = serializers.SerializerMethodField()
     personalized_analysis = serializers.SerializerMethodField()
 
-    #TODO: top_plus_logs = serializers.SerializerMethodField()
+    top_plus_logs = serializers.SerializerMethodField()
     completed_quests = serializers.SerializerMethodField()
 
     class Meta:
@@ -21,7 +22,7 @@ class CycleAnalysisSerializer(serializers.ModelSerializer):
                   'rest_days', 'activity_analysis', 'personalized_analysis', 'completed_quests']
 
     def get_active_days(self, obj):
-        if not obj.started_at or not obj.closed_at:
+        if not obj.started_at or not obj.rest_started_at:
             return None
         return (obj.rest_started_at - obj.started_at).days
 
@@ -54,8 +55,12 @@ class CycleAnalysisSerializer(serializers.ModelSerializer):
         ],
         }'''
 
-    #TODO: 플러스로그 가져오는 함수
+#TODO: 퀘스트/플러스로그 내용 구분...? 상위 10개/5개 판단 기준 정하고 로직 구현해야 함 
+
+    def get_top_plus_logs(self, obj):
+        logs = obj.pluslogs.order_by('-created_at')[:10]
+        return [log.content for log in logs]
 
     def get_completed_quests(self, obj):
-        quests = obj.quests.filter(state='DONE')
+        quests = obj.quests.filter(state='DONE')[:5]
         return [q.quest_content for q in quests]

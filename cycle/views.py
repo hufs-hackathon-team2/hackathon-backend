@@ -3,10 +3,12 @@ from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from .models import Cycle, User
+from .models import Cycle
+from accounts.models import User
 from rest_framework.response import Response
 from .serializers import CycleAnalysisSerializer
 from weekly_card.services import AIAnalysisError
+from .services import generate_cycle_analysis
 
 
 
@@ -48,8 +50,7 @@ class GetCurrentCycleAnalysis(APIView):
             )
 
         try:
-            #TODO: AI호출해서 분석 받아오는 함수 구현 (services.py)
-            result = request_cycle_analysis(target_cycle)
+            result = generate_cycle_analysis(target_cycle)
         except AIAnalysisError:
             return Response(
                 {"error": "AI 서비스를 실행할 수 없습니다."},
@@ -58,7 +59,7 @@ class GetCurrentCycleAnalysis(APIView):
         
         target_cycle.analysis = result
         target_cycle.analysis_request_count += 1
-        target_cycle.save(update_fields=['analysis_request_count'])
+        target_cycle.save(update_fields=['analysis', 'analysis_request_count'])
 
         response_serializer = CycleAnalysisSerializer(target_cycle)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
