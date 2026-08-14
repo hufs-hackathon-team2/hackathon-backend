@@ -113,3 +113,39 @@ def create_and_analyze_log(request):
             {'error': '로그 처리 중 오류 발생'}, 
             status=500
             )
+
+
+# LG-03. 기록 목록 조회
+@require_http_methods(["GET"])
+def get_log_list(request):
+    try:
+        page_number = request.GET.get('page', 1)
+        cycle_id = request.GET.get('cycle_id')
+
+        if not cycle_id:
+            return JsonResponse({'error': 'cycle_id 파라미터가 필요합니다.'}, status=400)
+
+        logs_query = PlusLog.objects.filter(
+            cycle_id=cycle_id,
+            deleted_at__isnull=True
+        ).prefetch_related('pluslogasset_set').order_by('-created_at')
+
+
+        paginator = Paginator(logs_query, 10)
+        page_obj = paginator.get_page(page_number)
+
+        result_logs = []
+        for log in page_obj:
+            keywords = [asset.extracted_keyword for asset in log.pluslogasset_set.all()]
+            
+            result_logs.append({
+                'log_id': log.log_id,
+                'content': log.content,
+                'created_at': log.created_at,
+                'keywords': keywords,
+            })
+
+        return JsonResponse({'logs': result_logs}, status=200)
+
+    except Exception as e:
+        return JsonResponse({'error': '유효하지 않은 요청입니다'}, status=400)
