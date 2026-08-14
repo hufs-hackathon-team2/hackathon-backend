@@ -2,9 +2,10 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
-from .serializers import QuestCreateSerializer, QuestResponseSerializer, CheckQuestSerializer, AbandonQuestSerializer, CurrentQuestSerializer
+from .serializers import QuestCreateSerializer, QuestResponseSerializer, CheckQuestSerializer, AbandonQuestSerializer, CurrentQuestSerializer, AIRecommendationResponseSerializer
 from .models import Quest
-from datetime import date
+from weekly_card.models import RecommendedQuest
+from datetime import date, timedelta
 from cycle.services import close_and_start_new_cycle
 from quest.services import check_for_quest, InvalidTransition, QuestAlreadyChecked, abandon_quest
 from rest_framework.permissions import IsAuthenticated
@@ -84,3 +85,30 @@ class ActiveQuestsAPIView(APIView):
 
         serializer = CurrentQuestSerializer(quests, many=True)
         return Response({"active_quests": serializer.data}, status=status.HTTP_200_OK)
+
+class AIRecommendationResponseAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        last_monday = date.today() - timedelta(days=date.today().weekday() + 7)
+        user = request.user
+        #직전 주의 주간 분석 레코드와 연결된 추천퀘스트 레코드를 가져와야 함
+        recommended_quests = RecommendedQuest.objects.filter(
+            weekly_analysis__user=user, 
+            weekly_analysis__week_start=last_monday
+        )
+
+        data = {
+            'has_recommendations': recommended_quests.exists(),
+            'week_start': last_monday,
+            'recommended_quests': recommended_quests,
+            'plus_log_count': Plus_log.objects.filter(
+                user = user,
+                created_at__gte=last_monday,
+                created_at__lt=last_monday+timedelta(days=7),
+            ).count(),
+            'required_log_count' : 2
+        }
+        response_serializer = AIRecommendationResponseSerializer(data)
+        
+        return Response(response_serializer.data, status=status.HTTP_200_OK)

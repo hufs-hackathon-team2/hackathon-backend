@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Quest
+from weekly_card.models import RecommendedQuest
 from datetime import date
 
 ####### 퀘스트 시작 #######
@@ -54,6 +55,23 @@ class CurrentQuestSerializer(serializers.ModelSerializer):
 
     def get_d_day(self, obj):
         days = self.get_days_since_start(obj)
-        if days in None:
+        if days is None:
             return None
         return 7 - days
+
+class AIRecommendedQuestSerializer(serializers.ModelSerializer):
+    recommendation_id = serializers.IntegerField(source='id', read_only=True)
+
+    class Meta:
+        model = RecommendedQuest
+        fields = ['recommendation_id', 'quest_content', 'reason']
+
+class AIRecommendationResponseSerializer(serializers.Serializer):
+    has_recommendations = serializers.BooleanField()
+    week_start = serializers.DateField()
+
+    recommended_quests = AIRecommendedQuestSerializer(many=True)
+
+    plus_log_count = serializers.IntegerField()
+    required_log_count = serializers.IntegerField()
+    
