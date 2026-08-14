@@ -74,4 +74,15 @@ class AIRecommendationResponseSerializer(serializers.Serializer):
 
     plus_log_count = serializers.IntegerField()
     required_log_count = serializers.IntegerField()
-    
+
+class AllQuestsOfCycleSerializer(serializers.ModelSerializer):
+    quest_id = serializers.IntegerField(source = 'id', read_only = True)
+
+    class Meta:
+        model = Quest
+        fields = ['quest_id', 'quest_content', 'state', 
+                  'started_at', 'last_checked', 'count']
+
+class AllQuestsOfCycleResponseSerializer(serializers.Serializer):
+    cycle_id = serializers.IntegerField()
+    quests = AllQuestsOfCycleSerializer(many = True)

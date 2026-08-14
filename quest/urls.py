@@ -7,4 +7,5 @@ urlpatterns = [
     path('quests/<int:quest_id>/abandon/', views.AbandonQuestSerializer.as_view(), name='abandon_quest'),
     path('quests/active/', views.ActiveQuestsAPIView.as_view(), name='active_quests'),
     path('quests/recommendations/', views.AIRecommendationResponseAPIView.as_view(), name='AI_recommended_quests'),
+    path('cycles/<int:cycle_id>/quests/', views.AllQuestsOfCycleAPIView.as_view(), name='all_quests_of_cycle'),
 ]

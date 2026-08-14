@@ -2,8 +2,10 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
-from .serializers import QuestCreateSerializer, QuestResponseSerializer, CheckQuestSerializer, AbandonQuestSerializer, CurrentQuestSerializer, AIRecommendationResponseSerializer
+from .serializers import QuestCreateSerializer, QuestResponseSerializer, CheckQuestSerializer, AbandonQuestSerializer, CurrentQuestSerializer, AIRecommendationResponseSerializer, AllQuestsOfCycleResponseSerializer
 from .models import Quest
+from account.models import User
+from cycle.models import Cycle
 from weekly_card.models import RecommendedQuest
 from datetime import date, timedelta
 from cycle.services import close_and_start_new_cycle
@@ -110,5 +112,34 @@ class AIRecommendationResponseAPIView(APIView):
             'required_log_count' : 2
         }
         response_serializer = AIRecommendationResponseSerializer(data)
-        
+
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+class QuestSuccessAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    #def get(self, request):
+    #TODO: ERD 수정 후 다시
+
+class AllQuestsOfCycleAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, cycle_id):
+        target_cycle = get_object_or_404(Cycle, id=cycle_id)
+
+        if target_cycle.user != request.user:
+            return Response({"error": "요청한 사용자의 사이클이 아닙니다."}, 
+                            status=status.HTTP_403_FORBIDDEN)
+
+        all_quests_of_cycle = Quest.objects.filter(
+            cycle = target_cycle,
+        )
+
+        data = {
+            "cycle_id": target_cycle.id,
+            "quests": all_quests_of_cycle
+        }
+
+        response_serializer = AllQuestsOfCycleResponseSerializer(data)
+
         return Response(response_serializer.data, status=status.HTTP_200_OK)
