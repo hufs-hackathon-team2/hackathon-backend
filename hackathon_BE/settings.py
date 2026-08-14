@@ -42,6 +42,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'accounts',
     'notifications',
+    'quest',
+    'cycle',
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
