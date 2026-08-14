@@ -1,55 +1,33 @@
 from django.db import models
 
-from cycle.models import Cycle  # noqa: F401  (참고용, 직접 참조는 안 함)
-
 
 class WeeklyAnalysis(models.Model):
     """
     주 1회 배치가 생성하는 "위클리 카드" 집계 결과.
 
     - GET /weekly-card 응답의 원본 데이터
-    - GET /quests/recommended 응답도 이 테이블(정확히는 자식 테이블 RecommendedQuest)을 공유해서 조회함
-    - User_ID: 아직 User 모델이 없어 FK를 걸지 못하는 상태.
-      TODO: User 모델 생성 후 user 필드를 FK로 교체할 것.
+    - GET /quests/recommended 응답도 이 테이블(정확히는 자식 테이블 RecommendedQuest)을
+      공유해서 조회함
+    - rest_NT_content: 휴식기 알림(notification) 발송 문구
+
+    db_column은 지정하지 않음 -> Django 기본 규칙(필드명 그대로, 소문자)을 컬럼명으로 사용.
     """
 
-    # TODO: User 모델 생성 후 FK로 교체
-    # user = models.ForeignKey(
-    #     settings.AUTH_USER_MODEL,
-    #     on_delete=models.CASCADE,
-    #     db_column="User_ID",
-    #     related_name="weekly_analyses",
-    # )
-    user_id_placeholder = models.IntegerField(
-        db_column="User_ID",
-        help_text="임시 필드. User 모델 생성 후 user FK로 교체 예정",
+    user = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.CASCADE,
+        related_name="weekly_analysis",
     )
-    week_start = models.DateField(
-        db_column="Week_Start",
-    )
-    week_end = models.DateField(
-        db_column="Week_End",
-    )
-    plus_log_count = models.PositiveSmallIntegerField(
-        default=0,
-        db_column="Plus_Log_Count",
-    )
-    success_quest_count = models.PositiveSmallIntegerField(
-        default=0,
-        db_column="Success_Quest_Count",
-    )
-    active_days = models.PositiveSmallIntegerField(
-        default=0,
-        db_column="Active_Days",
-    )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        db_column="Created_At",
-    )
+    week_start = models.DateField()
+    week_end = models.DateField()
+    plus_log_count = models.PositiveSmallIntegerField(default=0)
+    success_quest_count = models.PositiveSmallIntegerField(default=0)
+    active_days = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
     rest_NT_content = models.CharField(
         max_length=200,
-        db_column="Rest_NT_Content",
-        blank=True
+        blank=True,
+        help_text="휴식기 알림 발송 문구",
     )
     analysis = models.JSONField(
         default=dict,
@@ -61,10 +39,11 @@ class WeeklyAnalysis(models.Model):
         db_table = "weekly_analysis"
         verbose_name = "위클리 분석"
         verbose_name_plural = "위클리 분석 목록"
+        ordering = ["-week_start"]
         constraints = [
             # 같은 유저가 같은 주에 배치 결과를 중복 생성하지 못하도록 방지
             models.UniqueConstraint(
-                fields=["user_id_placeholder", "week_start"],
+                fields=["user", "week_start"],
                 name="weekly_analysis_unique_user_week",
             ),
         ]
@@ -81,18 +60,10 @@ class RecommendedQuest(models.Model):
     weekly_analysis = models.ForeignKey(
         WeeklyAnalysis,
         on_delete=models.CASCADE,
-        db_column="Weekly_Analysis_ID",
         related_name="recommendations",
     )
-    quest_content = models.CharField(
-        max_length=200,
-        db_column="Quest_Content",
-    )
-    reason = models.CharField(
-        max_length=200,
-        blank=True,
-        db_column="Reason",
-    )
+    quest_content = models.CharField(max_length=200)
+    reason = models.CharField(max_length=200, blank=True)
 
     class Meta:
         db_table = "recommended_quest"
