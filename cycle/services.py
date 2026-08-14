@@ -66,49 +66,34 @@ def check_and_apply_rest_transition(user: User, today: date) -> bool:
     return True
 
 
-def close_and_start_new_cycle(user: User, trigger_date: date, linked_record=None) -> Cycle | None:
+def close_and_start_new_cycle(user: User, trigger_date: date, linked_record: PlusLog | Quest | None) -> Cycle | None:
     """
     상태 전이: [C5/C8 -> C6] RESTING -> CLOSED -> ACTIVE (하나의 트랜잭션)
     기능 코드: CY-01 - 사이클 종료 / CY-05 - 사이클 재개
 
-    trigger: plus log 저장(C5) - 유민님 연결 필요
-             or 퀘스트 시작(C8)
-
-    가드: user.cycle_state == RESTING 인 경우에만 실행
-          (RESTING -> ACTIVE 직접 전환 금지, 반드시 CLOSED를 거침)
-
-    처리:
-    - 기존 Cycle: ended_at = trigger_date - 1, state = CLOSED
-    - 지난 사이클 분석 요청 트리거
-    - 새 Cycle 생성 (started_at = trigger_date, state = ACTIVE)
-    - linked_record(방금의 log/quest)를 새 사이클에 연결
-    - user.cycle_state -> ACTIVE
-
-    반환: 새로 생성된 Cycle, 조건 미충족 시 None
+    trigger: plus log 저장(C5) - TODO: 유민님 연결 필요
+             or 퀘스트 시작(C8) - TODO
     """
     current_cycle = user.current_cycle
 
-    if not current_cycle or current_cycle.state != 'RESTING':
+    if not current_cycle or current_cycle.state != Cycle.State.RESTING:
         return None
 
     with transaction.atomic():
-        current_cycle.state='CLOSED'
+        current_cycle.state=Cycle.State.CLOSED
         current_cycle.closed_at=trigger_date - timedelta(days=1)
         current_cycle.save(update_fields=['state', 'closed_at'])
 
         #TODO: 지난 사이클 분석 요청 트리거
 
         new_cycle = Cycle.objects.create(
-            user=user, state='ACTIVE', 
+            user=user, state=Cycle.State.ACTIVE, 
             started_at=trigger_date, count = current_cycle.count+1
         )
-
 
         user.current_cycle = new_cycle
         user.save(update_fields=['current_cycle'])
 
-        #TODO: linked_record를 new_cycle에 연결 
-        # (quest는 완료, pluslog 연결 TODO)
         if linked_record is not None:
             linked_record.cycle = new_cycle
             linked_record.save(update_fields=['cycle'])
@@ -119,16 +104,10 @@ def close_and_start_new_cycle(user: User, trigger_date: date, linked_record=None
 def handle_app_entry(user: User, today: date) -> bool:
     """
     상태 전이: [C4/C7] 앱 진입 시 호출.
-
-    - current_cycle.state == ACTIVE 이고 7일 경과 -> check_and_apply_rest_transition 호출 (C4)
-    - current_cycle.state == RESTING -> 아무것도 하지 않고 그대로 유지 (C7)
-      (금지 전이: 앱 진입만으로 RESTING 종료 불가)
-
-    반환: RESTING으로 전환되었는지 여부
     """
     current_cycle = user.current_cycle
 
-    if current_cycle and current_cycle.state == 'ACTIVE':
+    if current_cycle and current_cycle.state == Cycle.State.ACTIVE:
         return check_and_apply_rest_transition(user, today)
 
     return False
@@ -145,8 +124,9 @@ def start_cycle_after_onboarding(user: User, today: date) -> Cycle | None:
     with transaction.atomic():
         
         new_cycle = Cycle.objects.create(
-            user=user, state='ACTIVE', 
-            started_at=today, count = 1
+            user=user, 
+            state=Cycle.State.ACTIVE, 
+            started_at=today
         )
 
         user.current_cycle = new_cycle
