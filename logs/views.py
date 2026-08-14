@@ -167,3 +167,13 @@ def delete_log(request, log_id):
         return JsonResponse({'error': '존재하지 않는 로그입니다.'}, status=404)
     except Exception as e:
         return JsonResponse({'error': '로그 삭제 중 오류 발생'}, status=500)
+
+
+@csrf_exempt
+def log_dispatcher(request):
+    if request.method == 'GET':
+        return get_log_list(request)
+    elif request.method == 'POST':
+        return create_and_analyze_log(request)
+    else:
+        return JsonResponse({'error': '허용되지 않은 메서드입니다.'}, status=405)
