@@ -5,7 +5,9 @@ from django.views.decorators.http import require_POST
 from django.utils import timezone
 from decouple import config
 from openai import OpenAI
-from .models import PlusLog, Asset, PlusLogAsset
+
+from .constants import ASSET_LIST
+from .models import PlusLog, Asset
 
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_http_methods
@@ -13,14 +15,6 @@ from django.shortcuts import get_object_or_404
 
 #LG-02. 키워드 추출 및 에셋 매핑
 client = OpenAI(api_key=config('OPENAI_API_KEY'))
-
-ASSET_WHITELIST = {
-    '스트레칭': 'floormat', '요가': 'floormat', '홈트': 'floormat',
-    '산책': 'floorfootprint', '걷기': 'floorfootprint', '조깅': 'floorfootprint',
-    '근력': 'floordumbbell', '웨이트': 'floordumbbell', '헬스': 'floordumbbell',
-    '러닝': 'floorsneakers', '달리기': 'floorsneakers',
-    '계단': 'wallstairs', '등산': 'wallstairs'
-}
 
 @require_POST
 @csrf_exempt
@@ -48,21 +42,30 @@ def create_and_analyze_log(request):
             state='PENDING'
         )
 
-        prompt = f"""
-        다음 유저의 로그 내용을 분석하여, 핵심 키워드 3개를 추출해서 콤마(,)로 구분해줘.
-        단, 로그 내용에 건강을 해치는 위험한 내용이 포함되어 있다면 절대로 키워드를 추출하지 말고 오직 'DANGER'라고만 응답해.
-        키워드 / DANGER 이외의 다른 말은 절대로 하지 마.
-            
-        로그 내용: "{content}"
+        asset_options_str = ", ".join([f"{a['action']}({a['name']})" for a in ASSET_LIST])
+
+        system_prompt = f"""
+        너는 유저 로그를 분석해서 가장 알맞은 에셋을 추출하는 시스템이야.
+        [선택 가능한 에셋 리스트: 행동/의미(영어단어)]
+        {asset_options_str}
+        [필수 규칙]
+        1. 사용자의 로그에 건강을 해칠 수 있는 위험 키워드(예. 극단적 다이어트, 자해 등)가 있다면 절대로 에셋을 추출하지 말고 오직 'DANGER'라고만 응답해.
+        2. 구체적인 행동이 있다면 반드시 행동을 우선으로 선택 (감정보다 행동 우선)
+        3. 비슷한 에셋이 여러 개라면 더 구체적인 쪽을 선택 (예. 운동 vs 등산 -> 등산 선택)
+        4. 로그 내용과 일치하는 에셋이 목록에 전혀 없다면 무조건 'sparkles'라는 에셋을 반환.
+        5. 어떠한 설명도 덧붙이지 말고, 오직 '에셋명(예: run)' 또는 'DANGER'만 반환해.
         """
+
+        user_prompt = f"로그 내용: \"{content}\"\n\n위 로그에 가장 적합한 에셋 1개를 출력하세요."
 
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "너는 유저 로그를 분석해서 키워드를 추출하는 AI야."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=50
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        max_tokens= 20,
+                        temperature = 0.0
         )
 
         llm_result = response.choices[0].message.content.strip()
@@ -73,28 +76,12 @@ def create_and_analyze_log(request):
             log_entry.save()
             return JsonResponse({'error': '위험 키워드가 포함된 경우 저장되지 않습니다.'}, status=403)
 
-        extracted_keywords = []
+        valid_asset_names = [a['asset_name'] for a in ASSET_LIST]
+        final_asset_name = llm_result if llm_result in valid_asset_names else 'sparkles'
 
-        raw_keywords = [k.strip() for k in llm_result.split(',')][:3]
-        for keyword in raw_keywords:
-            if keyword in ASSET_WHITELIST:
-                target_asset_id = ASSET_WHITELIST[keyword]
+        asset = Asset.objects.get(asset_name=final_asset_name) 
 
-                asset, created = Asset.objects.get_or_create(
-                    asset_name=target_asset_id,
-                    defaults={
-                        'category': '운동',
-                        'image_url': f'https://raw.githubusercontent.com/microsoft/fluentui-emoji/main/assets/{target_asset_id}.png'
-                    }
-                )
-
-                PlusLogAsset.objects.create(
-                    log=log_entry,
-                    asset=asset,
-                    extracted_keyword=keyword
-                )
-                extracted_keywords.append(keyword)
-
+        log_entry.asset = asset
         log_entry.state = 'DONE'
         log_entry.processed_at = timezone.now()
         log_entry.save()
@@ -102,7 +89,7 @@ def create_and_analyze_log(request):
         return JsonResponse({
             'message': '로그 분석 성공',
             'log_id': log_entry.log_id,
-            'extracted_keywords': extracted_keywords
+            'extracted_keywords': final_asset_name
         }, status=200)
 
     except Exception as e:

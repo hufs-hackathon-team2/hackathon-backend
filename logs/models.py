@@ -5,7 +5,6 @@ class Asset(models.Model):
     asset_id = models.AutoField(primary_key=True)
     asset_name = models.CharField(max_length=50)
     category = models.CharField(max_length=20)
-    image_url = models.URLField(max_length=250)
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -31,23 +30,7 @@ class PlusLog(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True)
     cycle = models.IntegerField() # FK로 수정 필요
 
-    assets = models.ManyToManyField(Asset, through='PlusLogAsset')
+    assets = models.ForeignKey(Asset, on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta:
         db_table = 'plus_log'
-
-
-class PlusLogAsset(models.Model):
-    log = models.ForeignKey(PlusLog, on_delete=models.CASCADE)
-    asset = models.ForeignKey(Asset, on_delete=models.CASCADE)
-    extracted_keyword = models.CharField(max_length=50)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = 'plus_log_asset'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['log', 'asset'],
-                name='unique_log_asset'
-            )
-        ]
