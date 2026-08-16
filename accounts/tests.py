@@ -326,6 +326,51 @@ class LogoutViewTests(TestCase):
         self.assertEqual(refresh_response.status_code, 200)
 
 
+class InterestViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/users/me/interest/"
+        self.user = User.objects.create_user(
+            email="interest@example.com", password="correct-horse-battery"
+        )
+        login_response = self.client.post(
+            "/auth/login/",
+            {"email": "interest@example.com", "password": "correct-horse-battery"},
+        )
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}"
+        )
+
+    def test_select_interest_updates_user(self):
+        response = self.client.patch(
+            self.url, {"interest": "늦은 시간 식사"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["interest"], "늦은 시간 식사")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.interest, "늦은 시간 식사")
+
+    def test_select_interest_without_auth_returns_401(self):
+        self.client.credentials()
+
+        response = self.client.patch(self.url, {"interest": "늦은 시간 식사"}, format="json")
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_select_interest_empty_returns_400(self):
+        response = self.client.patch(self.url, {"interest": ""}, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("interest", response.data)
+
+    def test_select_interest_too_long_returns_400(self):
+        response = self.client.patch(self.url, {"interest": "가" * 101}, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("interest", response.data)
+
+
 class CharacterSelectViewTests(TestCase):
     def setUp(self):
         self.client = APIClient()

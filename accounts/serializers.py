@@ -79,6 +79,10 @@ class RefreshSerializer(serializers.Serializer):
         return attrs
 
 
+class InterestSerializer(serializers.Serializer):
+    interest = serializers.CharField(min_length=1, max_length=100)
+
+
 class CharacterSelectSerializer(serializers.Serializer):
     character_type = serializers.ChoiceField(choices=User.CharacterType.choices)
     character_name = serializers.CharField(min_length=2, max_length=10)

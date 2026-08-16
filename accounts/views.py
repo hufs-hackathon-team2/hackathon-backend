@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 
 from .serializers import (
     CharacterSelectSerializer,
+    InterestSerializer,
     LoginSerializer,
     NotificationSettingsSerializer,
     PasswordResetConfirmSerializer,
@@ -98,6 +99,17 @@ class LogoutView(APIView):
         db_token.revoked_at = timezone.now()
         db_token.save(update_fields=["revoked_at"])
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class InterestView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        serializer = InterestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        request.user.interest = serializer.validated_data["interest"]
+        request.user.save(update_fields=["interest"])
+        return Response({"interest": request.user.interest}, status=status.HTTP_200_OK)
 
 
 class CharacterSelectView(APIView):

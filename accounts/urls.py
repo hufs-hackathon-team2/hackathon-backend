@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     CharacterSelectView,
+    InterestView,
     LoginView,
     LogoutView,
     NotificationSettingsView,
@@ -29,6 +30,7 @@ urlpatterns = [
         PasswordResetConfirmView.as_view(),
         name="password-reset-confirm",
     ),
+    path("users/me/interest/", InterestView.as_view(), name="interest-select"),
     path("users/me/character/", CharacterSelectView.as_view(), name="character-select"),
     path(
         "users/me/onboarding-complete/",
