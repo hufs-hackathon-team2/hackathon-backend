@@ -38,9 +38,9 @@ def signup(email, password, nickname):
 
 
 def create_first_cycle(user):
-    # TODO(CY-01): Cycle 앱이 생기면 김다은과 합의한 인터페이스로 교체.
-    # 예상 시그니처: create_first_cycle(user) -> Cycle
-    # User.current_cycle FK가 아직 없어서(마이그레이션 깨짐) 갱신도 그때 함께 처리.
+    # TODO(CY-01): cycle.services.start_cycle_after_onboarding(user, today)로 교체 예정.
+    # User.current_cycle FK는 이미 추가됨. 아직 연결 안 한 이유: cycle.services가 dev에
+    # 병합 안 된 logs 앱을 import해서, 지금 연결하면 전체 엔드포인트가 깨짐(feat/plus-log 병합 후 진행).
     pass
 
 
