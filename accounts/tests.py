@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 from unittest.mock import patch
 
 from django.core import mail
@@ -6,6 +6,8 @@ from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
+
+from cycle.models import Cycle
 
 from .models import PasswordResetToken, RefreshToken, User
 from .services import generate_user_id
@@ -47,6 +49,22 @@ class UserManagerTests(TestCase):
         with self.assertRaises(IntegrityError):
             with transaction.atomic():
                 user.save(update_fields=["character_type"])
+
+    def test_current_cycle_defaults_to_none(self):
+        user = User.objects.create_user(email="cycle@example.com", password="pw12345!")
+
+        self.assertIsNone(user.current_cycle)
+
+    def test_current_cycle_set_null_when_cycle_deleted(self):
+        user = User.objects.create_user(email="cycle2@example.com", password="pw12345!")
+        cycle = Cycle.objects.create(user=user, state=Cycle.State.ACTIVE, started_at=date.today())
+        user.current_cycle = cycle
+        user.save(update_fields=["current_cycle"])
+
+        cycle.delete()
+        user.refresh_from_db()
+
+        self.assertIsNone(user.current_cycle)
 
 
 class SignupViewTests(TestCase):

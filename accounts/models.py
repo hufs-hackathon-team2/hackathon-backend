@@ -31,7 +31,12 @@ class User(AbstractBaseUser):
     notification_enabled = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    # TODO: current_cycle FK (CY-01 이후 추가)
+    # NOTE(ON-03/CY-01): 김다은 cycle 앱 코드가 이미 user.current_cycle을 getter/setter로 쓰고 있어 추가함(2026-08-16).
+    # on_delete=SET_NULL: PROTECT면 AU-06(회원 탈퇴, 하드 삭제+CASCADE)가 ProtectedError로 깨짐.
+    current_cycle = models.ForeignKey(
+        "cycle.Cycle", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+
     class CharacterType(models.TextChoices):
         CAT = "cat", "고양이"
         DOG = "dog", "강아지"
