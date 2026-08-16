@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'quest',
     'cycle',
     'weekly_card',
+    'characters',
 ]
 
 AUTH_USER_MODEL = 'accounts.User'

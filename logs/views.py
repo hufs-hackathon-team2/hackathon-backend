@@ -76,7 +76,8 @@ def create_and_analyze_log(request):
                             {"role": "user", "content": user_prompt}
                         ],
                         max_tokens= 20,
-                        temperature = 0.0
+                        temperature = 0.0,
+                        timeout=10
         )
 
         llm_result = response.choices[0].message.content.strip()

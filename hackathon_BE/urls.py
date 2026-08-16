@@ -22,4 +22,5 @@ urlpatterns = [
     path('logs/', include('logs.urls')),
     path('', include('accounts.urls')),
     path('', include('notifications.urls')),
+    path('characters/', include('characters.urls')),
 ]
