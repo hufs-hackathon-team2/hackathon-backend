@@ -1,11 +1,13 @@
-from datetime import timedelta
+from datetime import date, timedelta
 from unittest.mock import patch
 
 from django.core import mail
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
+
+from cycle.models import Cycle
 
 from .models import PasswordResetToken, RefreshToken, User
 from .services import generate_user_id
@@ -39,6 +41,30 @@ class UserManagerTests(TestCase):
         User.objects.create_user(email="dup@example.com", password="pw12345!")
         with self.assertRaises(IntegrityError):
             User.objects.create_user(email="dup@example.com", password="pw12345!")
+
+    def test_character_type_without_name_raises_integrity_error(self):
+        user = User.objects.create_user(email="charonly@example.com", password="pw12345!")
+        user.character_type = User.CharacterType.CAT
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                user.save(update_fields=["character_type"])
+
+    def test_current_cycle_defaults_to_none(self):
+        user = User.objects.create_user(email="cycle@example.com", password="pw12345!")
+
+        self.assertIsNone(user.current_cycle)
+
+    def test_current_cycle_set_null_when_cycle_deleted(self):
+        user = User.objects.create_user(email="cycle2@example.com", password="pw12345!")
+        cycle = Cycle.objects.create(user=user, state=Cycle.State.ACTIVE, started_at=date.today())
+        user.current_cycle = cycle
+        user.save(update_fields=["current_cycle"])
+
+        cycle.delete()
+        user.refresh_from_db()
+
+        self.assertIsNone(user.current_cycle)
 
 
 class SignupViewTests(TestCase):
@@ -300,6 +326,51 @@ class LogoutViewTests(TestCase):
         self.assertEqual(refresh_response.status_code, 200)
 
 
+class InterestViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = "/users/me/interest/"
+        self.user = User.objects.create_user(
+            email="interest@example.com", password="correct-horse-battery"
+        )
+        login_response = self.client.post(
+            "/auth/login/",
+            {"email": "interest@example.com", "password": "correct-horse-battery"},
+        )
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}"
+        )
+
+    def test_select_interest_updates_user(self):
+        response = self.client.patch(
+            self.url, {"interest": "늦은 시간 식사"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["interest"], "늦은 시간 식사")
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.interest, "늦은 시간 식사")
+
+    def test_select_interest_without_auth_returns_401(self):
+        self.client.credentials()
+
+        response = self.client.patch(self.url, {"interest": "늦은 시간 식사"}, format="json")
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_select_interest_empty_returns_400(self):
+        response = self.client.patch(self.url, {"interest": ""}, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("interest", response.data)
+
+    def test_select_interest_too_long_returns_400(self):
+        response = self.client.patch(self.url, {"interest": "가" * 101}, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("interest", response.data)
+
+
 class CharacterSelectViewTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -316,25 +387,76 @@ class CharacterSelectViewTests(TestCase):
         )
 
     def test_select_character_updates_user(self):
-        response = self.client.patch(self.url, {"character_id": 3}, format="json")
+        response = self.client.patch(
+            self.url,
+            {"character_type": "cat", "character_name": "나비"},
+            format="json",
+        )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["character_id"], 3)
+        self.assertEqual(response.data["character_type"], "cat")
+        self.assertEqual(response.data["character_name"], "나비")
         self.user.refresh_from_db()
-        self.assertEqual(self.user.character_id, 3)
+        self.assertEqual(self.user.character_type, "cat")
+        self.assertEqual(self.user.character_name, "나비")
 
     def test_select_character_without_auth_returns_401(self):
         self.client.credentials()
 
-        response = self.client.patch(self.url, {"character_id": 3}, format="json")
+        response = self.client.patch(
+            self.url,
+            {"character_type": "cat", "character_name": "나비"},
+            format="json",
+        )
 
         self.assertEqual(response.status_code, 401)
 
-    def test_select_character_invalid_id_returns_400(self):
-        response = self.client.patch(self.url, {"character_id": 0}, format="json")
+    def test_select_character_invalid_type_returns_400(self):
+        response = self.client.patch(
+            self.url,
+            {"character_type": "rabbit", "character_name": "나비"},
+            format="json",
+        )
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn("character_id", response.data)
+        self.assertIn("character_type", response.data)
+
+    def test_select_character_name_too_short_returns_400(self):
+        response = self.client.patch(
+            self.url,
+            {"character_type": "cat", "character_name": "나"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("character_name", response.data)
+
+    def test_select_character_name_too_long_returns_400(self):
+        response = self.client.patch(
+            self.url,
+            {"character_type": "cat", "character_name": "가" * 11},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("character_name", response.data)
+
+    def test_select_character_after_onboarding_completed_returns_400(self):
+        self.user.character_type = User.CharacterType.CAT
+        self.user.character_name = "나비"
+        self.user.onboarding_completed = True
+        self.user.save(update_fields=["character_type", "character_name", "onboarding_completed"])
+
+        response = self.client.patch(
+            self.url,
+            {"character_type": "dog", "character_name": "초코"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.character_type, "cat")
+        self.assertEqual(self.user.character_name, "나비")
 
 
 class OnboardingCompleteViewTests(TestCase):

@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 
 from .serializers import (
     CharacterSelectSerializer,
+    InterestSerializer,
     LoginSerializer,
     NotificationSettingsSerializer,
     PasswordResetConfirmSerializer,
@@ -100,16 +101,39 @@ class LogoutView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+class InterestView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        serializer = InterestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        request.user.interest = serializer.validated_data["interest"]
+        request.user.save(update_fields=["interest"])
+        return Response({"interest": request.user.interest}, status=status.HTTP_200_OK)
+
+
 class CharacterSelectView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request):
+        # NOTE(ON-02): 기능명세서 "이후 변경 불가" — 온보딩 완료 후에는 재선택을 막는다.
+        # 온보딩 도중(ON-04 중도 이탈로 인한 재시작 포함)에는 몇 번이든 다시 고를 수 있어야 한다.
+        if request.user.onboarding_completed:
+            return Response(
+                {"detail": "온보딩 완료 후에는 캐릭터를 변경할 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         serializer = CharacterSelectSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        request.user.character_id = serializer.validated_data["character_id"]
-        request.user.save(update_fields=["character_id"])
+        request.user.character_type = serializer.validated_data["character_type"]
+        request.user.character_name = serializer.validated_data["character_name"]
+        request.user.save(update_fields=["character_type", "character_name"])
         return Response(
-            {"character_id": request.user.character_id}, status=status.HTTP_200_OK
+            {
+                "character_type": request.user.character_type,
+                "character_name": request.user.character_name,
+            },
+            status=status.HTTP_200_OK,
         )
 
 

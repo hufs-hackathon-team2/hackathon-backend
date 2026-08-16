@@ -31,14 +31,37 @@ class User(AbstractBaseUser):
     notification_enabled = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    # TODO: current_cycle FK (CY-01 이후 추가)
-    # NOTE(ON-02): Character(CH) 앱이 아직 없어서 임시로 FK 없는 정수 필드로 둠.
-    # CH 앱이 생기면 한서연과 협의해서 ForeignKey('characters.Character')로 전환.
-    character_id = models.PositiveIntegerField(null=True, blank=True)
+    # NOTE(ON-01): 기능명세서에 "작성 결과를 저장한다"/"빈칸으로 두면 오류"로 명시됨. 100자 이하 자유 텍스트.
+    interest = models.CharField(max_length=100, default="")
+    # NOTE(ON-03/CY-01): 김다은 cycle 앱 코드가 이미 user.current_cycle을 getter/setter로 쓰고 있어 추가함(2026-08-16).
+    # on_delete=SET_NULL: PROTECT면 AU-06(회원 탈퇴, 하드 삭제+CASCADE)가 ProtectedError로 깨짐.
+    current_cycle = models.ForeignKey(
+        "cycle.Cycle", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+
+    class CharacterType(models.TextChoices):
+        CAT = "cat", "고양이"
+        DOG = "dog", "강아지"
+
+    # NOTE(ON-02): 캐릭터는 고양이/강아지 2종 고정(카탈로그 아님). 프론트 S12CharacterSelect 스펙에 맞춰 종류+이름으로 구성.
+    character_type = models.CharField(
+        max_length=3, choices=CharacterType.choices, null=True, blank=True
+    )
+    character_name = models.CharField(max_length=10, default="")
 
     USERNAME_FIELD = "email"
 
     objects = UserManager()
+
+    class Meta:
+        constraints = [
+            # character_type/character_name는 항상 같이 비어있거나 같이 차 있어야 한다(리뷰 지적, 2026-08-16).
+            models.CheckConstraint(
+                check=models.Q(character_type__isnull=True, character_name="")
+                | (models.Q(character_type__isnull=False) & ~models.Q(character_name="")),
+                name="user_character_type_and_name_together",
+            ),
+        ]
 
 
 class RefreshToken(models.Model):
