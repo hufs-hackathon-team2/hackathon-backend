@@ -441,6 +441,23 @@ class CharacterSelectViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("character_name", response.data)
 
+    def test_select_character_after_onboarding_completed_returns_400(self):
+        self.user.character_type = User.CharacterType.CAT
+        self.user.character_name = "나비"
+        self.user.onboarding_completed = True
+        self.user.save(update_fields=["character_type", "character_name", "onboarding_completed"])
+
+        response = self.client.patch(
+            self.url,
+            {"character_type": "dog", "character_name": "초코"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.character_type, "cat")
+        self.assertEqual(self.user.character_name, "나비")
+
 
 class OnboardingCompleteViewTests(TestCase):
     def setUp(self):

@@ -116,6 +116,13 @@ class CharacterSelectView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request):
+        # NOTE(ON-02): 기능명세서 "이후 변경 불가" — 온보딩 완료 후에는 재선택을 막는다.
+        # 온보딩 도중(ON-04 중도 이탈로 인한 재시작 포함)에는 몇 번이든 다시 고를 수 있어야 한다.
+        if request.user.onboarding_completed:
+            return Response(
+                {"detail": "온보딩 완료 후에는 캐릭터를 변경할 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         serializer = CharacterSelectSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         request.user.character_type = serializer.validated_data["character_type"]
