@@ -80,8 +80,8 @@ class RefreshSerializer(serializers.Serializer):
 
 
 class CharacterSelectSerializer(serializers.Serializer):
-    # NOTE(ON-02): Character(CH) 앱 확정 전까지 존재 여부 검증 없이 양수 ID만 받는다.
-    character_id = serializers.IntegerField(min_value=1)
+    character_type = serializers.ChoiceField(choices=User.CharacterType.choices)
+    character_name = serializers.CharField(min_length=2, max_length=10)
 
 
 class NotificationSettingsSerializer(serializers.Serializer):

@@ -106,10 +106,15 @@ class CharacterSelectView(APIView):
     def patch(self, request):
         serializer = CharacterSelectSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        request.user.character_id = serializer.validated_data["character_id"]
-        request.user.save(update_fields=["character_id"])
+        request.user.character_type = serializer.validated_data["character_type"]
+        request.user.character_name = serializer.validated_data["character_name"]
+        request.user.save(update_fields=["character_type", "character_name"])
         return Response(
-            {"character_id": request.user.character_id}, status=status.HTTP_200_OK
+            {
+                "character_type": request.user.character_type,
+                "character_name": request.user.character_name,
+            },
+            status=status.HTTP_200_OK,
         )
 
 

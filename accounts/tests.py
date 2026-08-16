@@ -2,7 +2,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.core import mail
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -39,6 +39,14 @@ class UserManagerTests(TestCase):
         User.objects.create_user(email="dup@example.com", password="pw12345!")
         with self.assertRaises(IntegrityError):
             User.objects.create_user(email="dup@example.com", password="pw12345!")
+
+    def test_character_type_without_name_raises_integrity_error(self):
+        user = User.objects.create_user(email="charonly@example.com", password="pw12345!")
+        user.character_type = User.CharacterType.CAT
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                user.save(update_fields=["character_type"])
 
 
 class SignupViewTests(TestCase):
@@ -316,25 +324,59 @@ class CharacterSelectViewTests(TestCase):
         )
 
     def test_select_character_updates_user(self):
-        response = self.client.patch(self.url, {"character_id": 3}, format="json")
+        response = self.client.patch(
+            self.url,
+            {"character_type": "cat", "character_name": "나비"},
+            format="json",
+        )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["character_id"], 3)
+        self.assertEqual(response.data["character_type"], "cat")
+        self.assertEqual(response.data["character_name"], "나비")
         self.user.refresh_from_db()
-        self.assertEqual(self.user.character_id, 3)
+        self.assertEqual(self.user.character_type, "cat")
+        self.assertEqual(self.user.character_name, "나비")
 
     def test_select_character_without_auth_returns_401(self):
         self.client.credentials()
 
-        response = self.client.patch(self.url, {"character_id": 3}, format="json")
+        response = self.client.patch(
+            self.url,
+            {"character_type": "cat", "character_name": "나비"},
+            format="json",
+        )
 
         self.assertEqual(response.status_code, 401)
 
-    def test_select_character_invalid_id_returns_400(self):
-        response = self.client.patch(self.url, {"character_id": 0}, format="json")
+    def test_select_character_invalid_type_returns_400(self):
+        response = self.client.patch(
+            self.url,
+            {"character_type": "rabbit", "character_name": "나비"},
+            format="json",
+        )
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn("character_id", response.data)
+        self.assertIn("character_type", response.data)
+
+    def test_select_character_name_too_short_returns_400(self):
+        response = self.client.patch(
+            self.url,
+            {"character_type": "cat", "character_name": "나"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("character_name", response.data)
+
+    def test_select_character_name_too_long_returns_400(self):
+        response = self.client.patch(
+            self.url,
+            {"character_type": "cat", "character_name": "가" * 11},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("character_name", response.data)
 
 
 class OnboardingCompleteViewTests(TestCase):
