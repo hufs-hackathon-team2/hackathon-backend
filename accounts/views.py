@@ -156,6 +156,8 @@ class SettingsView(APIView):
                 "nickname": request.user.nickname,
                 "email": request.user.email,
                 "onboarding_completed": request.user.onboarding_completed,
+                "restart_notification": request.user.restart_notification,
+                "activity_notification": request.user.activity_notification,
             },
             status=status.HTTP_200_OK,
         )
@@ -167,10 +169,15 @@ class NotificationSettingsView(APIView):
     def patch(self, request):
         serializer = NotificationSettingsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        request.user.notification_enabled = serializer.validated_data["enabled"]
-        request.user.save(update_fields=["notification_enabled"])
+        update_fields = list(serializer.validated_data.keys())
+        for field, value in serializer.validated_data.items():
+            setattr(request.user, field, value)
+        request.user.save(update_fields=update_fields)
         return Response(
-            {"notification_enabled": request.user.notification_enabled},
+            {
+                "restart_notification": request.user.restart_notification,
+                "activity_notification": request.user.activity_notification,
+            },
             status=status.HTTP_200_OK,
         )
 
