@@ -29,7 +29,7 @@ OPEN_AI_API_KEY = config('OPEN_AI_API_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['127.0.0.1', '3.34.161.144', 'meotjinsaja.shop']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '3.34.161.144', 'meotjinsaja.shop']
 
 
 # Application definition
