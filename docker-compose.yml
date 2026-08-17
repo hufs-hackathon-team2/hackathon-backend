@@ -1,6 +1,7 @@
 services:
 
   web:
+    build: .
     image: likelionteam2  # docker build -t [이미지 이름] . 에서 지정한 이름과 동일하게
     container_name: web # nginx.default.conf의 proxy_pass http://web:8000 과 반드시 일치해야 함
     command: bash -c "gunicorn hackathon_BE.wsgi:application -b 0.0.0.0:8000"
