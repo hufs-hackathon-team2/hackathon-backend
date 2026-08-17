@@ -29,7 +29,7 @@ OPEN_AI_API_KEY = config('OPEN_AI_API_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['127.0.0.1', '3.34.161.144', 'meotjinsaja.shop']
 
 
 # Application definition
@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'quest',
     'cycle',
     'weekly_card',
+    'characters',
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
@@ -155,3 +156,8 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+try:
+    from .local_settings import *
+except ImportError:
+    pass

@@ -8,41 +8,52 @@ from openai import OpenAI
 
 from .constants import ASSET_LIST
 from .models import PlusLog, Asset
+from cycle.models import Cycle
 
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_http_methods
 from django.shortcuts import get_object_or_404
 
 #LG-02. 키워드 추출 및 에셋 매핑
-client = OpenAI(api_key=config('OPENAI_API_KEY'))
+client = OpenAI(api_key=config('OPEN_AI_API_KEY'))
 
 @require_POST
-@csrf_exempt
 def create_and_analyze_log(request):
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
         return JsonResponse({'error': '잘못된 JSON 형식입니다.'}, status=400)
     
-    user_id = data.get('user_id')
     cycle_id = data.get('cycle_id')
     content = data.get('content')
 
-    if not user_id or not cycle_id or not content:
+    if (
+        cycle_id is None
+        or not isinstance(content, str)
+        or not content.strip()
+    ):
             return JsonResponse(
-                {'error': 'user_id, cycle_id, content 필드가 모두 필요합니다.'}, 
+                {'error': 'cycle_id, content 필드가 모두 필요합니다.'}, 
                 status=400
             )
 
+    if len(content) > 200:
+        return JsonResponse(
+            {'error': 'content는 200자 이내로 입력해주세요.'},
+            status=400
+        )
+
+    cycle_entry = get_object_or_404(Cycle, pk=cycle_id, user=request.user)
+    
     try:
         log_entry = PlusLog.objects.create(
-            user_id=user_id,
-            cycle_id=cycle_id,
+            user=request.user,
+            cycle=cycle_entry,
             content=content,
             state='PENDING'
         )
 
-        asset_options_str = ", ".join([f"{a['action']}({a['name']})" for a in ASSET_LIST])
+        asset_options_str = ", ".join([f"{a['action']}({a['asset_name']})" for a in ASSET_LIST])
 
         system_prompt = f"""
         너는 유저 로그를 분석해서 가장 알맞은 에셋을 추출하는 시스템이야.
@@ -65,7 +76,8 @@ def create_and_analyze_log(request):
                             {"role": "user", "content": user_prompt}
                         ],
                         max_tokens= 20,
-                        temperature = 0.0
+                        temperature = 0.0,
+                        timeout=10
         )
 
         llm_result = response.choices[0].message.content.strip()
@@ -74,12 +86,15 @@ def create_and_analyze_log(request):
             log_entry.state = 'FAILED'
             log_entry.processed_at = timezone.now()
             log_entry.save()
-            return JsonResponse({'error': '위험 키워드가 포함된 경우 저장되지 않습니다.'}, status=403)
+            return JsonResponse({'error': '위험 키워드가 포함되어 로그 분석이 실패했습니다.'}, status=403)
 
         valid_asset_names = [a['asset_name'] for a in ASSET_LIST]
         final_asset_name = llm_result if llm_result in valid_asset_names else 'sparkles'
 
-        asset = Asset.objects.get(asset_name=final_asset_name) 
+        try:
+            asset = Asset.objects.get(asset_name=final_asset_name, is_active=True)
+        except Asset.DoesNotExist:
+            asset = Asset.objects.get(asset_name='sparkles', is_active=True)
 
         log_entry.asset = asset
         log_entry.state = 'DONE'
@@ -89,12 +104,13 @@ def create_and_analyze_log(request):
         return JsonResponse({
             'message': '로그 분석 성공',
             'log_id': log_entry.log_id,
-            'extracted_keywords': final_asset_name
+            'asset': final_asset_name
         }, status=200)
 
     except Exception as e:
         if 'log_entry' in locals():
             log_entry.state = 'FAILED'
+            log_entry.processed_at = timezone.now()
             log_entry.save()
         return JsonResponse(
             {'error': '로그 처리 중 오류 발생'}, 
@@ -112,10 +128,12 @@ def get_log_list(request):
         if not cycle_id:
             return JsonResponse({'error': 'cycle_id 파라미터가 필요합니다.'}, status=400)
 
+        cycle_entry = get_object_or_404(Cycle, pk=cycle_id, user=request.user)
+
         logs_query = PlusLog.objects.filter(
-            cycle_id=cycle_id,
+            cycle=cycle_entry,
             deleted_at__isnull=True
-        ).prefetch_related('pluslogasset_set').order_by('-created_at')
+        ).select_related('asset').order_by('-created_at')
 
 
         paginator = Paginator(logs_query, 10)
@@ -123,13 +141,13 @@ def get_log_list(request):
 
         result_logs = []
         for log in page_obj:
-            keywords = [asset.extracted_keyword for asset in log.pluslogasset_set.all()]
+            asset_name = log.asset.asset_name if log.asset else None
             
             result_logs.append({
                 'log_id': log.log_id,
                 'content': log.content,
                 'created_at': log.created_at,
-                'keywords': keywords,
+                'asset': asset_name,
             })
 
         return JsonResponse({'logs': result_logs}, status=200)
@@ -139,11 +157,14 @@ def get_log_list(request):
 
 
 # LG-04. 기록 삭제
-@csrf_exempt
 @require_http_methods(["DELETE"])
 def delete_log(request, log_id):
     try:
-        log_entry = PlusLog.objects.get(log_id=log_id, deleted_at__isnull=True)
+        log_entry = PlusLog.objects.get(
+            log_id=log_id, 
+            user=request.user,
+            deleted_at__isnull=True
+        )
 
         log_entry.deleted_at = timezone.now()
         log_entry.save()

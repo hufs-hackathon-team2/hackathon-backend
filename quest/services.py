@@ -1,4 +1,5 @@
-from .models import User, Quest
+from .models import Quest
+from accounts.models import User
 from datetime import date
 
 ######### 상태 전이 및 기능 구현 #########
