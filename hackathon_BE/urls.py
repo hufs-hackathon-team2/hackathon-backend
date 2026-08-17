@@ -21,4 +21,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('accounts.urls')),
     path('', include('notifications.urls')),
+    path('', include('cycle.urls')),
+    path('', include('quest.urls')),
+    path('', include('weekly_card.urls')),
 ]
