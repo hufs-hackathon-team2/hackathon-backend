@@ -98,7 +98,15 @@ class CharacterSelectSerializer(serializers.Serializer):
 
 
 class NotificationSettingsSerializer(serializers.Serializer):
-    enabled = serializers.BooleanField()
+    restart_notification = serializers.BooleanField(required=False)
+    activity_notification = serializers.BooleanField(required=False)
+
+    def validate(self, attrs):
+        if not attrs:
+            raise serializers.ValidationError(
+                "restart_notification 또는 activity_notification 중 하나는 필요합니다."
+            )
+        return attrs
 
 
 class WithdrawalSerializer(serializers.Serializer):

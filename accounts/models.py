@@ -28,7 +28,10 @@ class User(AbstractBaseUser):
     nickname = models.CharField(max_length=10, default="")
     onboarding_completed = models.BooleanField(default=False)
     push_permission_granted = models.BooleanField(default=False)
-    notification_enabled = models.BooleanField(default=True)
+    # ST-02: 프론트 실제 화면(S71Notifications) 기준으로 종류별 토글 2개로 교체(2026-08-18).
+    # 해커톤 스코프상 단일 플래그로 갔던 결정을 프론트 요청에 맞춰 재변경.
+    restart_notification = models.BooleanField(default=True)
+    activity_notification = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     # NOTE(ON-01): 기능명세서에 "작성 결과를 저장한다"/"빈칸으로 두면 오류"로 명시됨. 100자 이하 자유 텍스트.
