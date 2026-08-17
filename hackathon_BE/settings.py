@@ -40,12 +40,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'logs',
     'rest_framework',
     'accounts',
     'notifications',
     'quest',
     'cycle',
     'weekly_card',
+    'characters',
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
