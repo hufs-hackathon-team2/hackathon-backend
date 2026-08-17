@@ -557,6 +557,7 @@ class SettingsViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["nickname"], "말순이")
         self.assertEqual(response.data["email"], "settings@example.com")
+        self.assertEqual(response.data["onboarding_completed"], False)
 
     def test_get_settings_without_auth_returns_401(self):
         self.client.credentials()

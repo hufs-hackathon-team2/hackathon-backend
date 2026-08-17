@@ -152,7 +152,11 @@ class SettingsView(APIView):
 
     def get(self, request):
         return Response(
-            {"nickname": request.user.nickname, "email": request.user.email},
+            {
+                "nickname": request.user.nickname,
+                "email": request.user.email,
+                "onboarding_completed": request.user.onboarding_completed,
+            },
             status=status.HTTP_200_OK,
         )
 
