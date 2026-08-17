@@ -23,4 +23,7 @@ urlpatterns = [
     path('', include('accounts.urls')),
     path('', include('notifications.urls')),
     path('characters/', include('characters.urls')),
+    path('', include('cycle.urls')),
+    path('', include('quest.urls')),
+    path('', include('weekly_card.urls')),
 ]
