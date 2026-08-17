@@ -37,6 +37,15 @@ class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
 
+    def to_internal_value(self, data):
+        # 프론트가 이메일 값을 username 키로 보내는 경우를 위한 별칭 처리.
+        # QueryDict(form/multipart)는 {**data, ...}로 펼치면 값이 리스트로 깨지므로
+        # 반드시 .copy()로 구조를 보존한 채 수정한다.
+        if "email" not in data and "username" in data:
+            data = data.copy()
+            data["email"] = data["username"]
+        return super().to_internal_value(data)
+
     def validate(self, attrs):
         user = authenticate(
             request=self.context.get("request"),

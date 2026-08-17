@@ -211,6 +211,15 @@ class LoginViewTests(TestCase):
 
         self.assertEqual(response.status_code, 401)
 
+    def test_login_accepts_username_as_email_alias(self):
+        response = self.client.post(
+            self.url,
+            {"username": "login@example.com", "password": "correct-horse-battery"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["user_id"], self.user.user_id)
+
     def test_login_nonexistent_email_returns_401_with_same_message(self):
         wrong_password_response = self.client.post(
             self.url, {"email": "login@example.com", "password": "wrong-password"}
@@ -751,3 +760,43 @@ class PasswordResetConfirmViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password("correct-horse-battery"))
+
+
+class TrailingSlashOptionalTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            email="noslash@example.com", password="correct-horse-battery1", nickname="말순이"
+        )
+        login_response = self.client.post(
+            "/auth/login", {"email": "noslash@example.com", "password": "correct-horse-battery1"}
+        )
+        self.access = login_response.data["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.access}")
+
+    def test_login_without_trailing_slash_works(self):
+        self.client.credentials()
+        response = self.client.post(
+            "/auth/login", {"email": "noslash@example.com", "password": "correct-horse-battery1"}
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_settings_get_without_trailing_slash_works(self):
+        response = self.client.get("/settings")
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_settings_notifications_patch_without_trailing_slash_works(self):
+        response = self.client.patch(
+            "/settings/notifications", {"enabled": False}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_withdrawal_delete_without_trailing_slash_works(self):
+        response = self.client.delete(
+            "/users/me", {"password": "correct-horse-battery1"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 204)
