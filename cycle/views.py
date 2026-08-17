@@ -63,4 +63,16 @@ class GetCurrentCycleAnalysis(APIView):
 
         response_serializer = CycleAnalysisSerializer(target_cycle)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-    
+
+    def get(self, request):
+
+        target_cycle = request.user.current_cycle
+
+        if not target_cycle:
+            return Response(
+                {"error": "현재 사이클이 없습니다. 온보딩을 완료해주세요."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        response_serializer = CycleAnalysisSerializer(target_cycle)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
