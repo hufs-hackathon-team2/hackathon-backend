@@ -49,6 +49,8 @@ INSTALLED_APPS = [
     'cycle',
     'weekly_card',
     'characters',
+    'drf_spectacular',
+
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
@@ -64,6 +66,14 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'likelionteam2 API',
+    'DESCRIPTION': '헬시 플레저 서비스 API',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
 }
 
 # AU-05: 개발 중에는 실제 메일 발송 대신 콘솔 출력으로 대체
