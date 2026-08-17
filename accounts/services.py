@@ -38,17 +38,21 @@ def signup(email, password, nickname):
 
 
 def create_first_cycle(user):
-    # TODO(CY-01): cycle.services.start_cycle_after_onboarding(user, today)로 교체 예정.
-    # User.current_cycle FK는 이미 추가됨. 아직 연결 안 한 이유: cycle.services가 dev에
-    # 병합 안 된 logs 앱을 import해서, 지금 연결하면 전체 엔드포인트가 깨짐(feat/plus-log 병합 후 진행).
-    pass
+    # 지연 import: cycle이 accounts.models를 참조하는 순환 관계라 모듈 최상단에서 import하지 않는다.
+    from cycle.services import start_cycle_after_onboarding
+
+    start_cycle_after_onboarding(user, timezone.localdate())
 
 
 def complete_onboarding(user):
     if not user.onboarding_completed:
-        user.onboarding_completed = True
-        user.save(update_fields=["onboarding_completed"])
-        create_first_cycle(user)
+        # create_first_cycle 실패 시 onboarding_completed도 같이 롤백되어야 한다.
+        # 온보딩 완료는 되돌릴 수 없는 전이라, 플래그만 저장되고 사이클 생성이 실패하면
+        # 재시도 경로가 없는 채로 영구히 멈추기 때문이다.
+        with transaction.atomic():
+            user.onboarding_completed = True
+            user.save(update_fields=["onboarding_completed"])
+            create_first_cycle(user)
     return user
 
 
