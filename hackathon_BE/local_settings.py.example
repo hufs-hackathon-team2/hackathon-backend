@@ -1,0 +1,27 @@
+# 로컬 개발용 설정 오버라이드 템플릿.
+# 사용법: 이 파일을 hackathon_BE/local_settings.py로 복사(그대로는 안 됨, 파일명에서 .example 제거).
+# local_settings.py는 .gitignore 대상이라 커밋되지 않는다 — 각자 로컬에만 둔다.
+#
+# 주의: 이 파일만으로는 부족하다. settings.py의 DATABASES 블록이
+# config('DB_NAME') 등을 이 파일보다 먼저(파일 순서상 위에서) 평가하기 때문에,
+# .env에 아래 4개를 더미값으로라도 먼저 넣어둬야 settings.py가 끝까지 로드되고
+# 이 파일의 오버라이드까지 도달한다:
+#   DB_NAME=dummy
+#   DB_USER=dummy
+#   DB_PASSWORD=dummy
+#   DB_HOST=dummy
+#
+# settings.py 맨 아래에서 이 파일을 import해 DATABASES/DEBUG 등을 덮어쓴다.
+
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+DEBUG = True
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
