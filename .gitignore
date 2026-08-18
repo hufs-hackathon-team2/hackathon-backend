@@ -2,6 +2,7 @@
 __pycache__/
 *.py[codz]
 *$py.class
+*.pyc
 
 # C extensions
 *.so
@@ -216,3 +217,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Django local settings
+local_settings.py

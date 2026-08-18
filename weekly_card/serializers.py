@@ -19,6 +19,8 @@ class WeeklyCardSerializer(serializers.ModelSerializer):
     rest_NT_content = serializers.CharField(
         source='analysis.rest_NT_content'
     )
+
+    is_generated = serializers.SerializerMethodField()
     
     class Meta:
         model = WeeklyAnalysis
@@ -26,3 +28,6 @@ class WeeklyCardSerializer(serializers.ModelSerializer):
                   'plus_log_count', 'success_quest_count',
                   'active_days', 'weekly_summary', 
                   'next_week_recommendations', 'rest_NT_content']
+
+    def get_is_generated(self, obj):
+        return self.context.get('is_generated', False)

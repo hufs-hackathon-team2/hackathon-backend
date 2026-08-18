@@ -15,7 +15,7 @@ from django.views.decorators.http import require_http_methods
 from django.shortcuts import get_object_or_404
 
 #LG-02. 키워드 추출 및 에셋 매핑
-client = OpenAI(api_key=config('OPENAI_API_KEY'))
+client = OpenAI(api_key=config('OPEN_AI_API_KEY'))
 
 @require_POST
 def create_and_analyze_log(request):

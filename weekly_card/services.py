@@ -40,7 +40,7 @@ def _collect_weekly_stats(user, week_start: date, week_end: date) -> dict:
     
     plus_logs = PlusLog.objects.filter(
         user=user, created_at__date__gte=week_start,
-        created_at__date__lt=week_end
+        created_at__date__lte=week_end
         )
 
 
@@ -101,11 +101,26 @@ def _call_ai_weekly_analysis(stats: dict) -> dict:
     {
     "weekly_summary": "string",
     "recommended_quests": [
-        {"title": "string", "subtitle": "string"},
-        {"title": "string", "subtitle": "string"},
-        {"title": "string", "subtitle": "string"},
-        {"title": "string", "subtitle": "string"},
-        {"title": "string", "subtitle": "string"}
+        {
+            "quest_content": "string",
+            "reason": "string"
+        },
+        {
+            "quest_content": "string",
+            "reason": "string"
+        },
+        {
+            "quest_content": "string",
+            "reason": "string"
+        },
+        {
+            "quest_content": "string",
+            "reason": "string"
+        },
+        {
+            "quest_content": "string",
+            "reason": "string"
+        }
     ],
     "rest_NT_content": "string"
     }
@@ -158,6 +173,10 @@ def generate_weekly_analysis(user, week_start: date) -> WeeklyAnalysis | None:
 
     stats = _collect_weekly_stats(user, week_start, week_end)
 
+    # Plus Log 3개 미만이면 생성하지 않음
+    if len(stats["plus_logs"]) < 3:
+        return None
+
     try:
         ai_result = _call_ai_weekly_analysis(stats)
     except AIAnalysisError:
@@ -170,16 +189,10 @@ def generate_weekly_analysis(user, week_start: date) -> WeeklyAnalysis | None:
             week_start=week_start,
             week_end=week_end,
             analysis=ai_result.get("weekly_summary", ""),
-            rest_NT_content=ai_result.get("rest_message", ""),
-            # TODO: plus_log_count, success_quest_count, active_days 채우기 (stats에서)
-            plus_log_count = PlusLog.objects.filter(
-                        user=user,
-                        created_at__date__gte=week_start,
-                        created_at__date__lt=date.today()).count(),
-            success_quest_count = Quest.objects.filter(
-                        cycle__user=user,
-                        state=Quest.State.DONE,
-                        last_checked__date__lt=date.today()).count()
+            rest_NT_content=ai_result.get("rest_NT_content", ""),
+            # TODO: active_days 채우기 (stats에서)
+            plus_log_count=len(stats["plus_logs"]),
+            success_quest_count=len(stats["quest_titles"]),
         )
         
 
@@ -200,22 +213,19 @@ def generate_weekly_analysis(user, week_start: date) -> WeeklyAnalysis | None:
 def run_weekly_batch(week_start: date) -> None:
 
     all_users = User.objects.all()
-    week_start = date.today() -timedelta(days=6)
 
     for user in all_users:
-        plus_log_count = PlusLog.objects.filter(
-                        user=user,
-                        created_at__date__gte=week_start,
-                        created_at__date__lt=date.today()).count()
-
-        if plus_log_count < 3: continue
 
         try:
-            generate_weekly_analysis(user, week_start)
+            generate_weekly_analysis(
+                user,
+                week_start
+            )
 
         except Exception:
             logger.exception(
                 "Weekly analysis failed for user_id=%s (week_start=%s)",
-                user.id, week_start,
+                user.id,
+                week_start,
             )
             continue
