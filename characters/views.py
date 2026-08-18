@@ -1,17 +1,19 @@
-from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from logs.models import PlusLog
 from cycle.models import Cycle
 from .models import CharacterState
 
-@require_http_methods(["GET"])
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_character_room(request):
     user = request.user
 
     try:
         char_state = CharacterState.objects.filter(user=user).first()
         if not char_state:
-            return JsonResponse({"error": "캐릭터 정보가 없습니다."}, status=404)
+            return Response({"error": "캐릭터 정보가 없습니다."}, status=404)
 
         stage_name, current_gauge, max_gauge = char_state.get_stage_and_gauge()
 
@@ -27,7 +29,7 @@ def get_character_room(request):
 
             assets_list = [log.asset.asset_name for log in recent_logs if log.asset]
 
-        return JsonResponse({
+        return Response({
             "total_score": char_state.total_score,
             "current_stage": stage_name,
             "gauge": {
@@ -38,4 +40,4 @@ def get_character_room(request):
         }, status=200)
 
     except Exception as e:
-        return JsonResponse({"error": "캐릭터 방 조회 중 오류가 발생했습니다."}, status=500)
+        return Response({"error": "캐릭터 방 조회 중 오류가 발생했습니다."}, status=500)
