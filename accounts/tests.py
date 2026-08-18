@@ -7,6 +7,7 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from characters.models import CharacterState
 from cycle.models import Cycle
 
 from .models import PasswordResetToken, RefreshToken, User
@@ -409,6 +410,16 @@ class CharacterSelectViewTests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.character_type, "cat")
         self.assertEqual(self.user.character_name, "나비")
+
+    def test_select_character_syncs_characters_app_char_type(self):
+        self.client.patch(
+            self.url,
+            {"character_type": "dog", "character_name": "초코"},
+            format="json",
+        )
+
+        character_state = CharacterState.objects.get(user=self.user)
+        self.assertEqual(character_state.char_type, CharacterState.CharType.DOG)
 
     def test_select_character_without_auth_returns_401(self):
         self.client.credentials()
