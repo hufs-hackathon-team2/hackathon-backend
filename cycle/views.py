@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404
 from .models import Cycle
 from accounts.models import User
 from rest_framework.response import Response
-from .serializers import CycleAnalysisSerializer
+from .serializers import CycleAnalysisSerializer, CycleHistorySerializer
 from weekly_card.services import AIAnalysisError
 from .services import generate_cycle_analysis
 
@@ -14,7 +14,7 @@ from .services import generate_cycle_analysis
 
 ####### 이전 싸이클 분석 조회 #######
 
-class GetCycleAnalysis(APIView):
+class CycleAnalysisDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, cycle_count):
@@ -31,7 +31,7 @@ class GetCycleAnalysis(APIView):
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 ####### 현재 싸이클 분석 조회 #######
-class GetCurrentCycleAnalysis(APIView):
+class CurrentCycleAnalysisAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -76,3 +76,21 @@ class GetCurrentCycleAnalysis(APIView):
         
         response_serializer = CycleAnalysisSerializer(target_cycle)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+class CycleHistoryListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        cycles = Cycle.objects.filter(
+            user=request.user,
+            closed_at__isnull=False, #이전 사이클만 가져옴
+        )
+
+        response_serializer = CycleHistorySerializer(cycles, many=True)
+
+        response = {
+            "cycles": [response_serializer.data]
+        }
+
+        return Response(response, status=status.HTTP_200_OK)

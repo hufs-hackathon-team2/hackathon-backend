@@ -85,3 +85,12 @@ class CycleAnalysisSerializer(serializers.ModelSerializer):
         for q in quests
         if q.last_checked
         ))
+
+class CycleHistorySerializer(serializers.ModelSerializer):
+    cycle_id = serializers.IntegerField(source = 'id', read_only = True)
+    cycle_count = serializers.IntegerField(source = 'count', read_only = True)
+
+    class Meta:
+        model = Cycle
+        fields = ['cycle_id', 'cycle_count', 
+                  'started_at', 'closed_at']
