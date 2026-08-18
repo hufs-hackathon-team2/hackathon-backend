@@ -5,6 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from characters.models import CharacterState
+
 from .serializers import (
     CharacterSelectSerializer,
     InterestSerializer,
@@ -128,6 +130,11 @@ class CharacterSelectView(APIView):
         request.user.character_type = serializer.validated_data["character_type"]
         request.user.character_name = serializer.validated_data["character_name"]
         request.user.save(update_fields=["character_type", "character_name"])
+        # characters 앱의 CharacterState.char_type이 별도 필드로 존재해서 여기서 같이 갱신한다.
+        # (가입 시 signal로 항상 생성되므로 filter().update()로 안전하게 갱신 가능)
+        CharacterState.objects.filter(user=request.user).update(
+            char_type=serializer.validated_data["character_type"].upper()
+        )
         return Response(
             {
                 "character_type": request.user.character_type,
