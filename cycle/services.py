@@ -149,13 +149,19 @@ def start_cycle_after_onboarding(user: User, today: date) -> Cycle | None:
 def _collect_cycle_stats(cycle: Cycle) -> dict:
 
     succeeded_quests = get_succeeded_quests(cycle)
+    quests = Quest.objects.filter(state=Quest.State.DONE).order_by('last_checked')
+    quest_dates = [quest.last_checked.date().isoformat() for quest in quests]
 
-    plus_logs = PlusLog.objects.filter(cycle=cycle)
+    plus_logs = PlusLog.objects.filter(cycle=cycle).order_by('-created_at')
     plus_logs = [log.content for log in plus_logs]
+    log_dates = [log.created_at.date().isoformat() for log in plus_logs]
+
 
     return {
         "quest_titles": succeeded_quests,
+        "quest_dates": quest_dates,
         "plus_logs": plus_logs,
+        "log_dates": log_dates
     }
 
 
@@ -191,6 +197,7 @@ def _call_ai_cycle_analysis(stats: dict) -> dict:
     2. 1번 항목에 따른 개인화 분석 3문장
     - 1번에서 언급한 사실을 단순 반복하지 말고, 그 안에서 드러나는 사용자만의 패턴이나 의미를 짚어냅니다.
       (예: 기록을 남기는 시간대, 자주 선택한 활동 유형, 꾸준함이 두드러진 요일, 특정 퀘스트에 대한 선호 등)
+    - 사이클의 plus log 내용, plus log 올리는 빈도, 작심삼일 퀘스트, 중간에 기록이 끊겼던 패턴, 휴식기 패턴 등을 종합적으로 분석합니다.
     - 수치나 사실을 근거로 "왜 그런 흐름이 나타났을지"를 사용자 입장에서 다정하게 해석해줍니다. 단정적인 원인 진단이 아니라, 공감하는 어조로 짐작하는 수준으로 작성합니다.
     - 활동이 적었거나 중단된 흐름이 있어도 실패로 규정하지 않고, 그 자체를 그 사람의 리듬이나 사정으로 받아들이는 문장으로 작성합니다. 절대 지적하거나 개선을 종용하는 어조를 쓰지 않습니다.
     - 사용자가 "내 이야기를 하고 있다"고 느낄 만큼 구체적으로 작성하되, 근거 없는 성격 단정이나 심리 분석(예: "당신은 완벽주의 성향이 있어요")은 하지 않습니다.
