@@ -60,7 +60,8 @@ class CurrentQuestSerializer(serializers.ModelSerializer):
     class Meta:
         model = Quest
         fields = ['quest_id', 'quest_content', 'started_at',
-                  'days_since_start', 'd_day', 'count', 'state']
+                  'days_since_start', 'd_day', 'count', 
+                  'state', 'last_checked']
 
     def get_days_since_start(self, obj):
         if not obj.started_at:
