@@ -10,7 +10,7 @@ from rest_framework.test import APIClient
 from cycle.models import Cycle
 
 from .models import PasswordResetToken, RefreshToken, User
-from .services import generate_user_id
+from .services import complete_onboarding, create_first_cycle, generate_user_id
 
 
 class GenerateUserIdTests(TestCase):
@@ -459,6 +459,29 @@ class CharacterSelectViewTests(TestCase):
         self.assertEqual(self.user.character_name, "나비")
 
 
+class CreateFirstCycleTests(TestCase):
+    def test_create_first_cycle_starts_cycle_and_sets_current_cycle(self):
+        user = User.objects.create_user(email="firstcycle@example.com", password="pw12345!")
+
+        create_first_cycle(user)
+
+        user.refresh_from_db()
+        self.assertIsNotNone(user.current_cycle)
+        self.assertEqual(user.current_cycle.state, Cycle.State.ACTIVE)
+
+    def test_create_first_cycle_is_idempotent(self):
+        user = User.objects.create_user(email="firstcycle2@example.com", password="pw12345!")
+
+        create_first_cycle(user)
+        user.refresh_from_db()
+        first_cycle_id = user.current_cycle_id
+
+        create_first_cycle(user)
+        user.refresh_from_db()
+
+        self.assertEqual(user.current_cycle_id, first_cycle_id)
+
+
 class OnboardingCompleteViewTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -499,6 +522,16 @@ class OnboardingCompleteViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["onboarding_completed"], True)
         mock_create_cycle.assert_called_once()
+
+    def test_onboarding_complete_rolls_back_flag_when_cycle_creation_fails(self):
+        with patch(
+            "accounts.services.create_first_cycle", side_effect=Exception("cycle 앱 오류")
+        ):
+            with self.assertRaises(Exception):
+                complete_onboarding(self.user)
+
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.onboarding_completed)
 
 
 class SettingsViewTests(TestCase):

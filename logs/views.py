@@ -27,7 +27,7 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 
 #LG-02. 키워드 추출 및 에셋 매핑
-client = OpenAI(api_key=config('OPENAI_API_KEY'))
+client = OpenAI(api_key=config('OPEN_AI_API_KEY'))
 
 def create_and_analyze_log(request):
     data = request.data
