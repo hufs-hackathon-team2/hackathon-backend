@@ -1,28 +1,26 @@
-import json
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
 from django.utils import timezone
+from datetime import date
 from decouple import config
 from openai import OpenAI
 
 from .constants import ASSET_LIST
 from .models import PlusLog, Asset
 from cycle.models import Cycle
+from cycle.services import close_and_start_new_cycle
+from characters.models import CharacterState, CharacterGrowthEvent
 
 from django.core.paginator import Paginator
-from django.views.decorators.http import require_http_methods
 from django.shortcuts import get_object_or_404
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 #LG-02. 키워드 추출 및 에셋 매핑
 client = OpenAI(api_key=config('OPEN_AI_API_KEY'))
 
-@require_POST
 def create_and_analyze_log(request):
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({'error': '잘못된 JSON 형식입니다.'}, status=400)
+    data = request.data
     
     cycle_id = data.get('cycle_id')
     content = data.get('content')
@@ -32,18 +30,40 @@ def create_and_analyze_log(request):
         or not isinstance(content, str)
         or not content.strip()
     ):
-            return JsonResponse(
+            return Response(
                 {'error': 'cycle_id, content 필드가 모두 필요합니다.'}, 
                 status=400
             )
 
     if len(content) > 200:
-        return JsonResponse(
+        return Response(
             {'error': 'content는 200자 이내로 입력해주세요.'},
             status=400
         )
 
     cycle_entry = get_object_or_404(Cycle, pk=cycle_id, user=request.user)
+
+    if request.user.current_cycle is None:
+        return Response({
+            'error': '현재 사이클이 없습니다.'
+        }, status=403)
+
+    if cycle_entry.id != request.user.current_cycle.id:
+        return Response({
+            'error': '현재 사이클에만 로그를 작성할 수 있습니다.'
+        }, status=403)
+
+    if cycle_entry.state not in [Cycle.State.ACTIVE, Cycle.State.RESTING]:
+        return Response({
+            'error': '현재 진행 중인 사이클에만 로그를 작성할 수 있습니다.'
+        }, status=403)
+
+    today = timezone.localtime().date()
+    has_log_today = PlusLog.objects.filter(
+        user=request.user,
+        created_at__date=today,
+        deleted_at__isnull=True
+    ).exists()
     
     try:
         log_entry = PlusLog.objects.create(
@@ -52,6 +72,10 @@ def create_and_analyze_log(request):
             content=content,
             state='PENDING'
         )
+
+        new_cycle = close_and_start_new_cycle(request.user, date.today(), linked_record=log_entry)
+
+        is_new_cycle_started = bool(new_cycle)
 
         asset_options_str = ", ".join([f"{a['action']}({a['asset_name']})" for a in ASSET_LIST])
 
@@ -86,7 +110,7 @@ def create_and_analyze_log(request):
             log_entry.state = 'FAILED'
             log_entry.processed_at = timezone.now()
             log_entry.save()
-            return JsonResponse({'error': '위험 키워드가 포함되어 로그 분석이 실패했습니다.'}, status=403)
+            return Response({'error': '위험 키워드가 포함되어 로그 분석이 실패했습니다.'}, status=403)
 
         valid_asset_names = [a['asset_name'] for a in ASSET_LIST]
         final_asset_name = llm_result if llm_result in valid_asset_names else 'sparkles'
@@ -101,10 +125,23 @@ def create_and_analyze_log(request):
         log_entry.processed_at = timezone.now()
         log_entry.save()
 
-        return JsonResponse({
+        if not has_log_today:
+            char_state, created = CharacterState.objects.get_or_create(user=request.user)
+            char_state.total_score += 1
+            char_state.save()
+
+            CharacterGrowthEvent.objects.create(
+                char_state=char_state,
+                source_type=CharacterGrowthEvent.SourceType.LOG,
+                score=1,
+                log=log_entry
+            )
+
+        return Response({
             'message': '로그 분석 성공',
             'log_id': log_entry.log_id,
-            'asset': final_asset_name
+            'asset': final_asset_name,
+            'new_cycle_started': is_new_cycle_started,
         }, status=200)
 
     except Exception as e:
@@ -112,21 +149,20 @@ def create_and_analyze_log(request):
             log_entry.state = 'FAILED'
             log_entry.processed_at = timezone.now()
             log_entry.save()
-        return JsonResponse(
+        return Response(
             {'error': '로그 처리 중 오류 발생'}, 
             status=500
             )
 
 
 # LG-03. 기록 목록 조회
-@require_http_methods(["GET"])
 def get_log_list(request):
     try:
-        page_number = request.GET.get('page', 1)
-        cycle_id = request.GET.get('cycle_id')
+        page_number = request.query_params.get('page', 1)
+        cycle_id = request.query_params.get('cycle_id')
 
         if not cycle_id:
-            return JsonResponse({'error': 'cycle_id 파라미터가 필요합니다.'}, status=400)
+            return Response({'error': 'cycle_id 파라미터가 필요합니다.'}, status=400)
 
         cycle_entry = get_object_or_404(Cycle, pk=cycle_id, user=request.user)
 
@@ -134,7 +170,6 @@ def get_log_list(request):
             cycle=cycle_entry,
             deleted_at__isnull=True
         ).select_related('asset').order_by('-created_at')
-
 
         paginator = Paginator(logs_query, 10)
         page_obj = paginator.get_page(page_number)
@@ -150,14 +185,22 @@ def get_log_list(request):
                 'asset': asset_name,
             })
 
-        return JsonResponse({'logs': result_logs}, status=200)
+        return Response({'logs': result_logs}, status=200)
 
     except Exception as e:
-        return JsonResponse({'error': '유효하지 않은 요청입니다'}, status=400)
+        return Response({'error': '유효하지 않은 요청입니다'}, status=400)
 
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def log_dispatcher(request):
+    if request.method == 'GET':
+        return get_log_list(request)
+    elif request.method == 'POST':
+        return create_and_analyze_log(request)
 
 # LG-04. 기록 삭제
-@require_http_methods(["DELETE"])
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
 def delete_log(request, log_id):
     try:
         log_entry = PlusLog.objects.get(
@@ -169,19 +212,9 @@ def delete_log(request, log_id):
         log_entry.deleted_at = timezone.now()
         log_entry.save()
 
-        return JsonResponse({'message': '로그 삭제 성공'}, status=200)
+        return Response({'message': '로그 삭제 성공'}, status=200)
 
     except PlusLog.DoesNotExist:
-        return JsonResponse({'error': '존재하지 않는 로그입니다.'}, status=404)
+        return Response({'error': '존재하지 않는 로그입니다.'}, status=404)
     except Exception as e:
-        return JsonResponse({'error': '로그 삭제 중 오류 발생'}, status=500)
-
-
-@csrf_exempt
-def log_dispatcher(request):
-    if request.method == 'GET':
-        return get_log_list(request)
-    elif request.method == 'POST':
-        return create_and_analyze_log(request)
-    else:
-        return JsonResponse({'error': '허용되지 않은 메서드입니다.'}, status=405)
+        return Response({'error': '로그 삭제 중 오류 발생'}, status=500)
