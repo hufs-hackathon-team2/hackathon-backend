@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
-from .serializers import QuestCreateSerializer, QuestResponseSerializer, CheckQuestSerializer, AbandonQuestSerializer, CurrentQuestSerializer, AIRecommendationResponseSerializer, AllQuestsOfCycleResponseSerializer
+from .serializers import QuestCreateSerializer, QuestResponseSerializer, CheckQuestSerializer, AbandonQuestSerializer, CurrentQuestSerializer, AIRecommendationResponseSerializer, AllQuestsOfCycleResponseSerializer, QuestSuccessDetailSerializer
 from .models import Quest
 from accounts.models import User
 from logs.models import PlusLog
@@ -139,9 +139,16 @@ class QuestSuccessDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, quest_id):
-        #quest = get_object_or_404(Quest, id=quest_id)
-        pass
-        #TODO: 캐릭터 성장 모델 만들어지면 구현
+        quest = get_object_or_404(
+            Quest.objects.select_related('cycle__user__character_state'), 
+            id=quest_id,
+            cycle__user=request.user 
+        )
+        response_serializer = QuestSuccessDetailSerializer(quest)
+
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+        
 
 ####### 사이클의 모든 퀘스트 조회 #######
 class QuestAllListView(APIView):

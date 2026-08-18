@@ -2,6 +2,8 @@ from rest_framework import serializers
 from .models import Quest
 from weekly_card.models import RecommendedQuest
 from datetime import date
+from characters.models import CharacterGrowthEvent
+from django.shortcuts import get_object_or_404
 
 ####### 퀘스트 시작 #######
 
@@ -101,3 +103,31 @@ class AllQuestsOfCycleSerializer(serializers.ModelSerializer):
 class AllQuestsOfCycleResponseSerializer(serializers.Serializer):
     cycle_id = serializers.IntegerField()
     quests = AllQuestsOfCycleSerializer(many = True)
+
+
+class QuestSuccessDetailSerializer(serializers.ModelSerializer):
+    quest_id = serializers.IntegerField(source = 'id', read_only = True)
+
+    is_completed = serializers.SerializerMethodField()
+    character_gauge_gained = serializers.SerializerMethodField()
+    character_gauge_total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Quest
+        fields = ['quest_id', 'state', 'count',
+                  'is_completed', 'quest_content',
+                  'character_gauge_gained', 'character_gauge_total']
+
+    def get_is_completed(self, obj):
+        return obj.state == Quest.State.DONE
+
+    def get_character_gauge_gained(self, obj):
+        generated_growth_event = CharacterGrowthEvent.objects.filter(
+            quest=obj).order_by('-created_at').first()
+
+        return generated_growth_event.score if generated_growth_event else 0
+
+    def get_character_gauge_total(self, obj):
+        character = obj.cycle.user.character_state
+
+        return character.total_score
