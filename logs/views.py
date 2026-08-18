@@ -5,6 +5,13 @@ from openai import OpenAI
 
 from .constants import ASSET_LIST
 from .models import PlusLog, Asset
+from .serializers import (
+    LogCreateSerializer,
+    LogCreateResponseSerializer,
+    LogListResponseSerializer,
+    LogDeleteResponseSerializer,
+)
+
 from cycle.models import Cycle
 from cycle.services import close_and_start_new_cycle
 from characters.models import CharacterState, CharacterGrowthEvent
@@ -15,6 +22,9 @@ from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
 
 #LG-02. 키워드 추출 및 에셋 매핑
 client = OpenAI(api_key=config('OPENAI_API_KEY'))
@@ -175,6 +185,7 @@ def get_log_list(request):
         page_obj = paginator.get_page(page_number)
 
         result_logs = []
+
         for log in page_obj:
             asset_name = log.asset.asset_name if log.asset else None
             
@@ -190,6 +201,29 @@ def get_log_list(request):
     except Exception as e:
         return Response({'error': '유효하지 않은 요청입니다'}, status=400)
 
+@extend_schema(
+    summary="플러스 로그 작성",
+    request=LogCreateSerializer,
+    responses={
+        200: LogCreateResponseSerializer,
+        400: None,
+        403: None,
+        500: None,
+    },
+    methods=['POST'],
+)
+@extend_schema(
+    summary="플러스 로그 목록 조회",
+    parameters=[
+        OpenApiParameter(name="cycle_id", description="사이클 ID", required=True, type=OpenApiTypes.INT),
+        OpenApiParameter(name="page", description="페이지 번호", required=False, type=OpenApiTypes.INT),
+    ],
+    responses={
+        200: LogListResponseSerializer,
+        400: None,
+    },
+    methods=['GET'],
+)
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def log_dispatcher(request):
@@ -199,6 +233,13 @@ def log_dispatcher(request):
         return create_and_analyze_log(request)
 
 # LG-04. 기록 삭제
+@extend_schema(
+    responses={
+        200: LogDeleteResponseSerializer,
+        404: None,
+        500: None,
+    }
+)
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_log(request, log_id):

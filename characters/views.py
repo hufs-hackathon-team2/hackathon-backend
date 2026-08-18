@@ -1,9 +1,37 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema
+
 from logs.models import PlusLog
 from cycle.models import Cycle
 from .models import CharacterState
+from .serializers import CharacterRoomResponseSerializer
+
+@extend_schema(
+    summary="캐릭터 방 조회",
+    description="현재 사용자의 캐릭터 상태와 성장 게이지, 현재 사이클의 최근 에셋 목록을 조회합니다.",
+    responses={
+        200: CharacterRoomResponseSerializer,
+        404: {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        500: {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        }
+    },
+    tags=["Characters"],
+)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -30,6 +58,7 @@ def get_character_room(request):
             assets_list = [log.asset.asset_name for log in recent_logs if log.asset]
 
         return Response({
+            "char_type": char_state.char_type,
             "total_score": char_state.total_score,
             "current_stage": stage_name,
             "gauge": {
