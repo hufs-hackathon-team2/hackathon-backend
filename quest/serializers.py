@@ -7,7 +7,16 @@ from datetime import date
 
 #POST 요청 body용
 class QuestCreateSerializer(serializers.ModelSerializer):
+    quest_content = serializers.CharField(
+        max_length=199,      # len(quest_content) >= 200 차단 (199자까지만 허용)
+        allow_blank=False,   # 빈 문자열("") 차단
+        trim_whitespace=True, # 앞뒤 공백 자동 제거
 
+        error_messages={
+            'blank': '퀘스트 내용이 비어있습니다. 올바르게 입력해주세요.',
+            'max_length': '퀘스트 내용이 200자를 초과합니다.'
+        }
+    )
     class Meta:
         model = Quest
         fields = ['quest_content']
@@ -15,10 +24,15 @@ class QuestCreateSerializer(serializers.ModelSerializer):
 #POST 요청의 응답 body용
 class QuestResponseSerializer(serializers.ModelSerializer):
     quest_id = serializers.IntegerField(source='id', read_only=True)
+    new_cycle_started = serializers.SerializerMethodField()
 
     class Meta:
         model = Quest
-        fields = ['quest_id', 'quest_content', 'started_at']
+        fields = ['quest_id', 'quest_content', 
+                  'started_at', 'new_cycle_started']
+
+    def get_new_cycle_started(self, obj):
+        return self.context.get('new_cycle_started', False)
 
 ####### 퀘스트 수행 체크 #######
 class CheckQuestSerializer(serializers.ModelSerializer):
