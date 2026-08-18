@@ -94,7 +94,7 @@ def close_and_start_new_cycle(user: User, trigger_date: date, linked_record: Plu
         current_cycle.closed_at=trigger_date - timedelta(days=1)
         current_cycle.save(update_fields=['state', 'closed_at'])
 
-        #TODO: 지난 사이클 분석 요청 트리거
+        generate_cycle_analysis(user, current_cycle)
 
         new_cycle = Cycle.objects.create(
             user=user, state=Cycle.State.ACTIVE, 
@@ -243,10 +243,6 @@ def _call_ai_cycle_analysis(stats: dict) -> dict:
 
 def generate_cycle_analysis(user, cycle: Cycle) -> dict | None:
 
-    if cycle.analysis_request_count >= 3:
-        logger.warning("유저 %s 사이클 %s 분석 요청 횟수 초과", user.id, cycle.id)
-        return None
-
     stats = _collect_cycle_stats(cycle)
 
     try:
@@ -257,8 +253,7 @@ def generate_cycle_analysis(user, cycle: Cycle) -> dict | None:
 
     with transaction.atomic():
         cycle.analysis = ai_result
-        cycle.analysis_request_count += 1
-        cycle.save(update_fields=['analysis', 'analysis_request_count'])
+        cycle.save(update_fields=['analysis'])
 
     return ai_result
 
