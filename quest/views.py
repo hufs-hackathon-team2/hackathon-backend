@@ -11,7 +11,13 @@ from weekly_card.models import RecommendedQuest
 from datetime import date, datetime, timedelta
 from django.utils import timezone
 from cycle.services import close_and_start_new_cycle
-from quest.services import check_for_quest, InvalidTransition, QuestAlreadyChecked, abandon_quest
+from quest.services import (
+    check_for_quest,
+    InvalidTransition,
+    QuestAlreadyChecked,
+    abandon_quest,
+    sync_active_quest_state,
+)
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
@@ -33,16 +39,15 @@ class QuestCreateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        #동일 퀘스트가 진행중인지 판정
-
-        is_duplicate = Quest.objects.filter(
+        # 퀘스트는 한 번에 하나만 ACTIVE로 진행할 수 있다.
+        sync_active_quest_state(request.user, date.today())
+        has_active_quest = Quest.objects.filter(
             cycle__user=request.user,
             state=Quest.State.ACTIVE,
-            quest_content=quest_content,
         ).exists()
-        if is_duplicate:
+        if has_active_quest:
             return Response(
-                {"detail": "같은 내용으로 진행중인 퀘스트가 있습니다."},
+                {"detail": "이미 진행중인 퀘스트가 있습니다. 완료하거나 포기한 뒤 새로 시작해주세요."},
                 status=status.HTTP_409_CONFLICT
             )
 
@@ -100,6 +105,7 @@ class QuestActiveListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        sync_active_quest_state(request.user, date.today())
         quests = Quest.objects.filter(
             cycle__user=request.user,
             state=Quest.State.ACTIVE

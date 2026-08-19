@@ -8,7 +8,32 @@ from characters.models import CharacterGrowthEvent, CharacterState
 class InvalidTransition(Exception): pass
 class QuestAlreadyChecked(Exception): pass
 
+QUEST_DEADLINE_DAYS = 7  # started_at으로부터 이 일수가 지나면 D-day 만료(FAILED) 처리
+
+
+def sync_active_quest_state(user: User, today: date) -> None:
+    """
+    유저의 ACTIVE 퀘스트가 D-day(시작일로부터 QUEST_DEADLINE_DAYS일)를 넘겼으면 FAILED로 정리한다.
+    퀘스트는 한 번에 하나만 ACTIVE로 진행 가능해서, 이걸 안 하면 방치된 퀘스트가
+    영원히 ACTIVE로 남아 새 퀘스트를 시작할 수 없게 막혀버린다.
+    """
+    active_quest = Quest.objects.filter(
+        cycle__user=user, state=Quest.State.ACTIVE
+    ).first()
+
+    if active_quest is None:
+        return
+
+    days_since_start = (today - active_quest.started_at).days
+    if days_since_start >= QUEST_DEADLINE_DAYS:
+        active_quest.state = Quest.State.FAILED
+        active_quest.save(update_fields=['state'])
+
 def check_for_quest(quest: Quest, today: date) -> Quest:
+
+    if quest.state == Quest.State.ACTIVE and (today - quest.started_at).days >= QUEST_DEADLINE_DAYS:
+        quest.state = Quest.State.FAILED
+        quest.save(update_fields=['state'])
 
     if quest.state != Quest.State.ACTIVE:
         raise InvalidTransition("ACTIVE 상태의 퀘스트만 체크할 수 있습니다.")
