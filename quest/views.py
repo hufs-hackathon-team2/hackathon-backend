@@ -34,7 +34,7 @@ class QuestCreateView(APIView):
         #동일 퀘스트가 진행중인지 판정
 
         is_duplicate = Quest.objects.filter(
-            user=request.user,
+            cycle__user=request.user,
             state=Quest.State.ACTIVE,
             quest_content=quest_content,
         ).exists()
@@ -46,7 +46,6 @@ class QuestCreateView(APIView):
 
 
         quest = Quest.objects.create(
-            user=request.user,
             quest_content = create_serializer.validated_data['quest_content'],
             state='ACTIVE',
             started_at=date.today(),
@@ -68,7 +67,7 @@ class QuestCheckUpdateView(APIView):
 
     def post(self, request, quest_id):
 
-        quest = get_object_or_404(Quest, id=quest_id, user=request.user)
+        quest = get_object_or_404(Quest, id=quest_id, cycle__user=request.user)
         try:
             result = check_for_quest(quest, date.today())
             response_serializer = CheckQuestSerializer(result)
@@ -85,7 +84,7 @@ class QuestAbandonUpdateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, quest_id):
-        quest = get_object_or_404(Quest, id=quest_id, user=request.user)
+        quest = get_object_or_404(Quest, id=quest_id, cycle__user=request.user)
         try:
             result = abandon_quest(quest)
             response_serializer = AbandonQuestSerializer(result)
@@ -100,7 +99,7 @@ class QuestActiveListView(APIView):
 
     def get(self, request):
         quests = Quest.objects.filter(
-            user=request.user, 
+            cycle__user=request.user,
             state=Quest.State.ACTIVE
         )
 
