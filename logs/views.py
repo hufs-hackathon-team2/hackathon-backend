@@ -17,7 +17,6 @@ from cycle.services import close_and_start_new_cycle
 from characters.models import CharacterState, CharacterGrowthEvent
 
 from django.core.paginator import Paginator
-from django.shortcuts import get_object_or_404
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -31,17 +30,15 @@ client = OpenAI(api_key=config('OPEN_AI_API_KEY'))
 
 def create_and_analyze_log(request):
     data = request.data
-    
-    cycle_id = data.get('cycle_id')
+
     content = data.get('content')
 
     if (
-        cycle_id is None
-        or not isinstance(content, str)
+        not isinstance(content, str)
         or not content.strip()
     ):
             return Response(
-                {'error': 'cycle_id, content 필드가 모두 필요합니다.'}, 
+                {'error': 'content 필드가 필요합니다.'},
                 status=400
             )
 
@@ -51,16 +48,11 @@ def create_and_analyze_log(request):
             status=400
         )
 
-    cycle_entry = get_object_or_404(Cycle, pk=cycle_id, user=request.user)
+    cycle_entry = request.user.current_cycle
 
-    if request.user.current_cycle is None:
+    if cycle_entry is None:
         return Response({
             'error': '현재 사이클이 없습니다.'
-        }, status=403)
-
-    if cycle_entry.id != request.user.current_cycle.id:
-        return Response({
-            'error': '현재 사이클에만 로그를 작성할 수 있습니다.'
         }, status=403)
 
     if cycle_entry.state not in [Cycle.State.ACTIVE, Cycle.State.RESTING]:

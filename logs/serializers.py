@@ -3,7 +3,6 @@ from rest_framework import serializers
 
 # LG-02. 로그 작성 요청
 class LogCreateSerializer(serializers.Serializer):
-    cycle_id = serializers.IntegerField()
     content = serializers.CharField(max_length=200)
 
 # LG-02. 로그 작성 응답
