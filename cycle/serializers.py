@@ -88,7 +88,7 @@ class CycleAnalysisSerializer(serializers.ModelSerializer):
         ]
 
     def get_completed_quests(self, obj):
-        quests = obj.quests.filter(state=Quest.State.DONE)[:5]
+        quests = obj.quests.filter(state=Quest.State.DONE).order_by('-last_checked')
         return [q.quest_content for q in quests]
 
     def get_log_dates(self, obj):
