@@ -8,7 +8,8 @@ from accounts.models import User
 from logs.models import PlusLog
 from cycle.models import Cycle
 from weekly_card.models import RecommendedQuest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from django.utils import timezone
 from cycle.services import close_and_start_new_cycle
 from quest.services import check_for_quest, InvalidTransition, QuestAlreadyChecked, abandon_quest
 from rest_framework.permissions import IsAuthenticated
@@ -111,11 +112,16 @@ class QuestRecommendationListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        last_monday = date.today() - timedelta(days=date.today().weekday() + 7)
+        today = timezone.localdate()
+        last_monday = today - timedelta(days=today.weekday() + 7)
+        # created_at은 DateTimeField라 naive date로 바로 비교하면 USE_TZ=True에서
+        # naive datetime 경고 + 타임존 어긋남이 생기므로, aware datetime 경계로 변환해서 비교한다.
+        week_start_dt = timezone.make_aware(datetime.combine(last_monday, datetime.min.time()))
+        week_end_dt = week_start_dt + timedelta(days=7)
         user = request.user
         #직전 주의 주간 분석 레코드와 연결된 추천퀘스트 레코드를 가져와야 함
         recommended_quests = RecommendedQuest.objects.filter(
-            weekly_analysis__user=user, 
+            weekly_analysis__user=user,
             weekly_analysis__week_start=last_monday
         )
 
@@ -125,8 +131,8 @@ class QuestRecommendationListView(APIView):
             'recommended_quests': recommended_quests,
             'plus_log_count': PlusLog.objects.filter(
                 user = user,
-                created_at__gte=last_monday,
-                created_at__lt=last_monday+timedelta(days=7),
+                created_at__gte=week_start_dt,
+                created_at__lt=week_end_dt,
             ).count(),
             'required_log_count' : 2
         }
