@@ -169,12 +169,10 @@ def create_and_analyze_log(request):
 def get_log_list(request):
     try:
         page_number = request.query_params.get('page', 1)
-        cycle_id = request.query_params.get('cycle_id')
+        cycle_entry = request.user.current_cycle
 
-        if not cycle_id:
-            return Response({'error': 'cycle_id 파라미터가 필요합니다.'}, status=400)
-
-        cycle_entry = get_object_or_404(Cycle, pk=cycle_id, user=request.user)
+        if not cycle_entry:
+            return Response({'error': '현재 사이클이 없습니다. 온보딩을 완료해주세요.'}, status=400)
 
         logs_query = PlusLog.objects.filter(
             cycle=cycle_entry,
@@ -215,7 +213,6 @@ def get_log_list(request):
 @extend_schema(
     summary="플러스 로그 목록 조회",
     parameters=[
-        OpenApiParameter(name="cycle_id", description="사이클 ID", required=True, type=OpenApiTypes.INT),
         OpenApiParameter(name="page", description="페이지 번호", required=False, type=OpenApiTypes.INT),
     ],
     responses={
