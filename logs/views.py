@@ -1,3 +1,5 @@
+import logging
+
 from django.utils import timezone
 from datetime import date
 from decouple import config
@@ -27,6 +29,7 @@ from drf_spectacular.types import OpenApiTypes
 
 #LG-02. 키워드 추출 및 에셋 매핑
 client = OpenAI(api_key=config('OPEN_AI_API_KEY'))
+logger = logging.getLogger(__name__)
 
 def create_and_analyze_log(request):
     data = request.data
@@ -146,13 +149,14 @@ def create_and_analyze_log(request):
             'new_cycle_started': is_new_cycle_started,
         }, status=200)
 
-    except Exception as e:
+    except Exception:
+        logger.exception("플러스 로그 처리 실패 (user=%s)", request.user.user_id)
         if 'log_entry' in locals():
             log_entry.state = 'FAILED'
             log_entry.processed_at = timezone.now()
             log_entry.save()
         return Response(
-            {'error': '로그 처리 중 오류 발생'}, 
+            {'error': '로그 처리 중 오류 발생'},
             status=500
             )
 
