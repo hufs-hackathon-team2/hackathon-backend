@@ -93,7 +93,7 @@ def create_and_analyze_log(request):
         1. 사용자의 로그에 건강을 해칠 수 있는 위험 키워드(예. 극단적 다이어트, 자해 등)가 명확하게 있을 때만 'DANGER'라고 응답해. 단순히 뜻을 모르겠거나 애매하다는 이유로 DANGER를 반환하면 안 돼.
         2. 구체적인 행동이 있다면 반드시 행동을 우선으로 선택 (감정보다 행동 우선)
         3. 비슷한 에셋이 여러 개라면 더 구체적인 쪽을 선택 (예. 운동 vs 등산 -> 등산 선택)
-        4. 로그 내용과 일치하는 에셋이 없거나, 의미를 알 수 없는 무작위 문자/오타/한글 자모(예. "ㅇㅁㄻㄹㄷ")처럼 실제 활동을 특정할 수 없는 내용이면 위험 키워드가 아닌 이상 무조건 'sparkles'를 반환해.
+        4. 로그 내용과 일치하는 에셋이 없거나, 의미를 알 수 없는 무작위 문자/오타/한글 자모(예. "ㅇㅁㄻㄹㄷ")처럼 실제 활동을 특정할 수 없는 내용이면 위험 키워드가 아닌 이상 무조건 'sprout'를 반환해.
         5. 어떠한 설명도 덧붙이지 말고, 오직 '에셋명(예: run)' 또는 'DANGER'만 반환해.
         """
 
@@ -119,12 +119,12 @@ def create_and_analyze_log(request):
             return Response({'error': '위험 키워드가 포함되어 로그 분석이 실패했습니다.'}, status=403)
 
         valid_asset_names = [a['asset_name'] for a in ASSET_LIST]
-        final_asset_name = llm_result if llm_result in valid_asset_names else 'sparkles'
+        final_asset_name = llm_result if llm_result in valid_asset_names else 'sprout'
 
         try:
             asset = Asset.objects.get(asset_name=final_asset_name, is_active=True)
         except Asset.DoesNotExist:
-            asset = Asset.objects.get(asset_name='sparkles', is_active=True)
+            asset = Asset.objects.get(asset_name='sprout', is_active=True)
 
         log_entry.asset = asset
         log_entry.state = 'DONE'
