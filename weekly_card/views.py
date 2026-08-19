@@ -14,11 +14,14 @@ class WeeklyCardAPIView(APIView):
 
     def get(self, request):
         week_start = date.today() - timedelta(days=date.today().weekday() + 7)
-        target_weekly_analysis = get_object_or_404(
-            WeeklyAnalysis,
+        target_weekly_analysis = WeeklyAnalysis.objects.get(
             user=request.user,
             week_start=week_start)
 
-        response_serializer = WeeklyCardSerializer(target_weekly_analysis)
+        is_generated = target_weekly_analysis is not None
+
+        response_serializer = WeeklyCardSerializer(
+            target_weekly_analysis,
+            context={'is_generated': is_generated})
 
         return Response(response_serializer.data, status=status.HTTP_200_OK)
