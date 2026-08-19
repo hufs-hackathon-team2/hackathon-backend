@@ -54,12 +54,16 @@ def check_for_quest(quest: Quest, today: date) -> Quest:
         quest.state = Quest.State.DONE
         score=5
 
+    char_state = user.character_state
+    char_state.total_score += score
+    char_state.save(update_fields=['total_score'])
+
     CharacterGrowthEvent.objects.create(
-        char_state = user.character_state,
+        char_state = char_state,
         source_type = CharacterGrowthEvent.SourceType.QUEST,
         score = score,
         quest = quest
-    ) 
+    )
 
     quest.save()
 
