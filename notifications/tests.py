@@ -39,3 +39,10 @@ class PushPermissionViewTests(TestCase):
         response = self.client.post(self.url, {"granted": True}, format="json")
 
         self.assertEqual(response.status_code, 401)
+
+    def test_grant_permission_without_trailing_slash_works(self):
+        response = self.client.post(
+            "/notifications/permission", {"granted": True}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 200)
