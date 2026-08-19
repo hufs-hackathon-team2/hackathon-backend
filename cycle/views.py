@@ -50,16 +50,15 @@ class CurrentCycleAnalysisAPIView(APIView):
             )
 
         try:
-            result = generate_cycle_analysis(target_cycle)
+            generate_cycle_analysis(target_cycle)
         except AIAnalysisError:
             return Response(
                 {"error": "AI 서비스를 실행할 수 없습니다."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
         
-        target_cycle.analysis = result
         target_cycle.analysis_request_count += 1
-        target_cycle.save(update_fields=['analysis', 'analysis_request_count'])
+        target_cycle.save(update_fields=['analysis_request_count'])
 
         response_serializer = CycleAnalysisSerializer(target_cycle)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)

@@ -31,7 +31,8 @@ class UserManagerTests(TestCase):
         self.assertTrue(user.check_password("pw12345!"))
         self.assertFalse(user.onboarding_completed)
         self.assertFalse(user.push_permission_granted)
-        self.assertTrue(user.notification_enabled)
+        self.assertTrue(user.restart_notification)
+        self.assertTrue(user.activity_notification)
 
     def test_create_user_without_email_raises(self):
         with self.assertRaises(ValueError):
@@ -210,6 +211,15 @@ class LoginViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 401)
+
+    def test_login_accepts_username_as_email_alias(self):
+        response = self.client.post(
+            self.url,
+            {"username": "login@example.com", "password": "correct-horse-battery"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["user_id"], self.user.user_id)
 
     def test_login_nonexistent_email_returns_401_with_same_message(self):
         wrong_password_response = self.client.post(
@@ -557,6 +567,9 @@ class SettingsViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["nickname"], "말순이")
         self.assertEqual(response.data["email"], "settings@example.com")
+        self.assertEqual(response.data["onboarding_completed"], False)
+        self.assertEqual(response.data["restart_notification"], True)
+        self.assertEqual(response.data["activity_notification"], True)
 
     def test_get_settings_without_auth_returns_401(self):
         self.client.credentials()
@@ -581,27 +594,49 @@ class NotificationSettingsViewTests(TestCase):
             HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}"
         )
 
-    def test_disable_notifications_updates_user(self):
-        response = self.client.patch(self.url, {"enabled": False}, format="json")
+    def test_disable_restart_notification_updates_only_that_field(self):
+        response = self.client.patch(
+            self.url, {"restart_notification": False}, format="json"
+        )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["notification_enabled"], False)
+        self.assertEqual(response.data["restart_notification"], False)
+        self.assertEqual(response.data["activity_notification"], True)
         self.user.refresh_from_db()
-        self.assertFalse(self.user.notification_enabled)
+        self.assertFalse(self.user.restart_notification)
+        self.assertTrue(self.user.activity_notification)
 
-    def test_enable_notifications_updates_user(self):
-        self.user.notification_enabled = False
-        self.user.save()
-
-        response = self.client.patch(self.url, {"enabled": True}, format="json")
+    def test_disable_activity_notification_updates_only_that_field(self):
+        response = self.client.patch(
+            self.url, {"activity_notification": False}, format="json"
+        )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["notification_enabled"], True)
+        self.assertEqual(response.data["activity_notification"], False)
+        self.assertEqual(response.data["restart_notification"], True)
+
+    def test_update_both_notification_fields_at_once(self):
+        response = self.client.patch(
+            self.url,
+            {"restart_notification": False, "activity_notification": False},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["restart_notification"], False)
+        self.assertEqual(response.data["activity_notification"], False)
+
+    def test_notification_settings_with_no_fields_returns_400(self):
+        response = self.client.patch(self.url, {}, format="json")
+
+        self.assertEqual(response.status_code, 400)
 
     def test_notification_settings_without_auth_returns_401(self):
         self.client.credentials()
 
-        response = self.client.patch(self.url, {"enabled": False}, format="json")
+        response = self.client.patch(
+            self.url, {"restart_notification": False}, format="json"
+        )
 
         self.assertEqual(response.status_code, 401)
 
@@ -750,3 +785,43 @@ class PasswordResetConfirmViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password("correct-horse-battery"))
+
+
+class TrailingSlashOptionalTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(
+            email="noslash@example.com", password="correct-horse-battery1", nickname="말순이"
+        )
+        login_response = self.client.post(
+            "/auth/login", {"email": "noslash@example.com", "password": "correct-horse-battery1"}
+        )
+        self.access = login_response.data["access"]
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.access}")
+
+    def test_login_without_trailing_slash_works(self):
+        self.client.credentials()
+        response = self.client.post(
+            "/auth/login", {"email": "noslash@example.com", "password": "correct-horse-battery1"}
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_settings_get_without_trailing_slash_works(self):
+        response = self.client.get("/settings")
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_settings_notifications_patch_without_trailing_slash_works(self):
+        response = self.client.patch(
+            "/settings/notifications", {"restart_notification": False}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_withdrawal_delete_without_trailing_slash_works(self):
+        response = self.client.delete(
+            "/users/me", {"password": "correct-horse-battery1"}, format="json"
+        )
+
+        self.assertEqual(response.status_code, 204)
