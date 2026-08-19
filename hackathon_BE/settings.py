@@ -79,6 +79,26 @@ SPECTACULAR_SETTINGS = {
 # AU-05: 개발 중에는 실제 메일 발송 대신 콘솔 출력으로 대체
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
+# DEBUG=False면 Django 기본 로깅이 500 에러를 콘솔에 안 찍고 mail_admins로만 보내서
+# (메일 설정도 없어 사실상 소실) `docker compose logs`로 원인 파악이 불가능했다.
+# require_debug_true 필터 없는 콘솔 핸들러를 따로 붙여서 서버 로그에는 항상 남긴다.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
