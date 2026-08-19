@@ -1,6 +1,5 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
-from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from rest_framework import serializers
@@ -70,19 +69,13 @@ class RefreshSerializer(serializers.Serializer):
         except TokenError:
             raise invalid_error
 
-        db_token = RefreshToken.objects.filter(
+        db_token = RefreshToken.objects.select_related("user").filter(
             token=token_str, revoked_at__isnull=True
         ).first()
         if db_token is None or db_token.expires_at <= timezone.now():
             raise invalid_error
 
-        user_id = jwt_token[settings.SIMPLE_JWT["USER_ID_CLAIM"]]
-        try:
-            user = User.objects.get(pk=user_id)
-        except User.DoesNotExist:
-            raise invalid_error
-
-        attrs["user"] = user
+        attrs["user"] = db_token.user
         attrs["jwt_token"] = jwt_token
         attrs["db_token"] = db_token
         return attrs
@@ -131,7 +124,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         return _validate_password_strength(value)
 
     def validate(self, attrs):
-        db_token = PasswordResetToken.objects.filter(
+        db_token = PasswordResetToken.objects.select_related("user").filter(
             token=attrs["token"], used_at__isnull=True
         ).first()
         if db_token is None or db_token.expires_at <= timezone.now():

@@ -5,8 +5,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from characters.models import CharacterState
-
 from .serializers import (
     CharacterSelectSerializer,
     InterestSerializer,
@@ -23,7 +21,9 @@ from .services import (
     confirm_password_reset,
     issue_tokens,
     request_password_reset,
+    select_character,
     signup,
+    update_user_fields,
 )
 
 
@@ -109,8 +109,7 @@ class InterestView(APIView):
     def patch(self, request):
         serializer = InterestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        request.user.interest = serializer.validated_data["interest"]
-        request.user.save(update_fields=["interest"])
+        update_user_fields(request.user, serializer.validated_data)
         return Response({"interest": request.user.interest}, status=status.HTTP_200_OK)
 
 
@@ -127,14 +126,7 @@ class CharacterSelectView(APIView):
             )
         serializer = CharacterSelectSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        request.user.character_type = serializer.validated_data["character_type"]
-        request.user.character_name = serializer.validated_data["character_name"]
-        request.user.save(update_fields=["character_type", "character_name"])
-        # characters 앱의 CharacterState.char_type이 별도 필드로 존재해서 여기서 같이 갱신한다.
-        # (가입 시 signal로 항상 생성되므로 filter().update()로 안전하게 갱신 가능)
-        CharacterState.objects.filter(user=request.user).update(
-            char_type=serializer.validated_data["character_type"].upper()
-        )
+        select_character(request.user, **serializer.validated_data)
         return Response(
             {
                 "character_type": request.user.character_type,
@@ -176,10 +168,7 @@ class NotificationSettingsView(APIView):
     def patch(self, request):
         serializer = NotificationSettingsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        update_fields = list(serializer.validated_data.keys())
-        for field, value in serializer.validated_data.items():
-            setattr(request.user, field, value)
-        request.user.save(update_fields=update_fields)
+        update_user_fields(request.user, serializer.validated_data)
         return Response(
             {
                 "restart_notification": request.user.restart_notification,

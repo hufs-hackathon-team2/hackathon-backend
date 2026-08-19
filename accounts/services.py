@@ -4,9 +4,10 @@ from datetime import timedelta
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
-from django.db.models import F
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken as JWTRefreshToken
+
+from characters.models import CharacterState
 
 from .models import PasswordResetToken, RefreshToken, User, UserIdCounter
 
@@ -15,11 +16,18 @@ PASSWORD_RESET_TOKEN_LIFETIME = timedelta(minutes=30)
 
 def generate_user_id():
     with transaction.atomic():
+        # select_for_update로 행을 이미 잠갔으므로 F()로 동시성을 따로 보호할 필요가 없다.
         counter, _ = UserIdCounter.objects.select_for_update().get_or_create(pk=1)
-        counter.last_number = F("last_number") + 1
+        counter.last_number += 1
         counter.save()
-        counter.refresh_from_db()
         return f"USR{counter.last_number:07d}"
+
+
+def update_user_fields(user, validated_data):
+    fields = list(validated_data.keys())
+    for field, value in validated_data.items():
+        setattr(user, field, value)
+    user.save(update_fields=fields)
 
 
 def issue_tokens(user):
@@ -35,6 +43,16 @@ def signup(email, password, nickname):
     user = User.objects.create_user(email=email, password=password, nickname=nickname)
     access, refresh = issue_tokens(user)
     return user, access, refresh
+
+
+def select_character(user, character_type, character_name):
+    user.character_type = character_type
+    user.character_name = character_name
+    user.save(update_fields=["character_type", "character_name"])
+    # TODO: characters 앱에 자체 service 함수가 생기면 이 직접 ORM 갱신은 그쪽 호출로 교체할 것.
+    # 지금은 characters.CharacterState.char_type이 별도 필드로 존재해서 여기서 같이 갱신한다.
+    # (가입 시 signal로 항상 생성되므로 filter().update()로 안전하게 갱신 가능)
+    CharacterState.objects.filter(user=user).update(char_type=character_type.upper())
 
 
 def create_first_cycle(user):
