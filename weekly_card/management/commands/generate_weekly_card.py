@@ -12,8 +12,9 @@ class Command(BaseCommand):
 
         today = date.today()
 
+        # GET /weekly-card/(weekly_card/views.py)와 동일하게 "지난주" 기준으로 맞춘다.
         week_start = today - timedelta(
-            days=today.weekday()
+            days=today.weekday() + 7
         )
 
         run_weekly_batch(week_start)

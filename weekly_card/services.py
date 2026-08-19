@@ -167,7 +167,7 @@ def generate_weekly_analysis(user, week_start: date) -> WeeklyAnalysis | None:
     week_end = week_start + timedelta(days=6)
 
     if WeeklyAnalysis.objects.filter(
-        user_id_placeholder=user.id, week_start=week_start
+        user=user, week_start=week_start
     ).exists():
         return None
 
@@ -180,21 +180,21 @@ def generate_weekly_analysis(user, week_start: date) -> WeeklyAnalysis | None:
     try:
         ai_result = _call_ai_weekly_analysis(stats)
     except AIAnalysisError:
-        logger.error("유저 %s 위클리 분석 실패, 이번 주는 건너뜀", user.id)
+        logger.error("유저 %s 위클리 분석 실패, 이번 주는 건너뜀", user.user_id)
         return None  # 이 유저만 스킵하고 배치는 계속 진행
 
     with transaction.atomic():
         analysis = WeeklyAnalysis.objects.create(
-            user_id_placeholder=user.id,
+            user=user,
             week_start=week_start,
             week_end=week_end,
-            analysis=ai_result.get("weekly_summary", ""),
+            analysis={"weekly_summary": ai_result.get("weekly_summary", "")},
             rest_NT_content=ai_result.get("rest_NT_content", ""),
             # TODO: active_days 채우기 (stats에서)
             plus_log_count=len(stats["plus_logs"]),
             success_quest_count=len(stats["quest_titles"]),
         )
-        
+
 
         for item in ai_result.get("recommended_quests", []):
             RecommendedQuest.objects.create(
@@ -225,7 +225,7 @@ def run_weekly_batch(week_start: date) -> None:
         except Exception:
             logger.exception(
                 "Weekly analysis failed for user_id=%s (week_start=%s)",
-                user.id,
+                user.user_id,
                 week_start,
             )
             continue
