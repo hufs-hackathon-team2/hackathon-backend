@@ -40,7 +40,8 @@ class QuestCreateView(APIView):
             )
 
         # 퀘스트는 한 번에 하나만 ACTIVE로 진행할 수 있다.
-        sync_active_quest_state(request.user, date.today())
+        today = date.today()
+        sync_active_quest_state(request.user, today)
         has_active_quest = Quest.objects.filter(
             cycle__user=request.user,
             state=Quest.State.ACTIVE,
@@ -51,15 +52,27 @@ class QuestCreateView(APIView):
                 status=status.HTTP_409_CONFLICT
             )
 
+        # 포기 직후 바로 재시작해서 체크하는 방식으로 게이지를 무한정 불리는 걸 막는다.
+        abandoned_today = Quest.objects.filter(
+            cycle__user=request.user,
+            state=Quest.State.ABANDONED,
+            abandoned_at=today,
+        ).exists()
+        if abandoned_today:
+            return Response(
+                {"detail": "퀘스트를 포기한 당일에는 새 퀘스트를 시작할 수 없습니다. 내일 다시 시도해주세요."},
+                status=status.HTTP_409_CONFLICT
+            )
+
 
         quest = Quest.objects.create(
             quest_content = create_serializer.validated_data['quest_content'],
             state='ACTIVE',
-            started_at=date.today(),
+            started_at=today,
             cycle=request.user.current_cycle,
         )
-        
-        new_cycle = close_and_start_new_cycle(request.user, date.today(), linked_record=quest)
+
+        new_cycle = close_and_start_new_cycle(request.user, today, linked_record=quest)
 
         is_new_cycle_started = new_cycle is not None
 
@@ -93,7 +106,7 @@ class QuestAbandonUpdateView(APIView):
     def post(self, request, quest_id):
         quest = get_object_or_404(Quest, id=quest_id, cycle__user=request.user)
         try:
-            result = abandon_quest(quest)
+            result = abandon_quest(quest, date.today())
             response_serializer = AbandonQuestSerializer(result)
             return Response(response_serializer.data, status=status.HTTP_200_OK)
         except InvalidTransition as e:

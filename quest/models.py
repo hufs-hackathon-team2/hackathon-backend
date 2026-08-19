@@ -43,6 +43,10 @@ class Quest(models.Model):
         null=True,
         blank=True,
     )
+    abandoned_at = models.DateField(
+        null=True,
+        blank=True,
+    )
     count = models.PositiveSmallIntegerField(
         default=0,
     )
