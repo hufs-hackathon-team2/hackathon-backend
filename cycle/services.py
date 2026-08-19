@@ -149,12 +149,12 @@ def start_cycle_after_onboarding(user: User, today: date) -> Cycle | None:
 def _collect_cycle_stats(cycle: Cycle) -> dict:
 
     succeeded_quests = get_succeeded_quests(cycle)
-    quests = Quest.objects.filter(state=Quest.State.DONE).order_by('last_checked')
+    quests = Quest.objects.filter(cycle=cycle, state=Quest.State.DONE).order_by('last_checked')
     quest_dates = [quest.last_checked.date().isoformat() for quest in quests]
 
-    plus_logs = PlusLog.objects.filter(cycle=cycle).order_by('-created_at')
-    plus_logs = [log.content for log in plus_logs]
-    log_dates = [log.created_at.date().isoformat() for log in plus_logs]
+    plus_log_entries = PlusLog.objects.filter(cycle=cycle).order_by('-created_at')
+    plus_logs = [log.content for log in plus_log_entries]
+    log_dates = [log.created_at.date().isoformat() for log in plus_log_entries]
 
 
     return {
@@ -255,7 +255,7 @@ def generate_cycle_analysis(user, cycle: Cycle) -> dict | None:
     try:
         ai_result = _call_ai_cycle_analysis(stats)
     except AIAnalysisError:
-        logger.error("유저 %s 사이클 분석 실패", user.id)
+        logger.error("유저 %s 사이클 분석 실패", user.user_id)
         return None
 
     with transaction.atomic():

@@ -7,7 +7,6 @@ from .models import Cycle
 from accounts.models import User
 from rest_framework.response import Response
 from .serializers import CycleAnalysisSerializer, CycleHistorySerializer
-from weekly_card.services import AIAnalysisError
 from .services import generate_cycle_analysis
 
 
@@ -49,14 +48,13 @@ class CurrentCycleAnalysisAPIView(APIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS
             )
 
-        try:
-            generate_cycle_analysis(target_cycle)
-        except AIAnalysisError:
+        ai_result = generate_cycle_analysis(request.user, target_cycle)
+        if ai_result is None:
             return Response(
                 {"error": "AI 서비스를 실행할 수 없습니다."},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
-        
+
         target_cycle.analysis_request_count += 1
         target_cycle.save(update_fields=['analysis_request_count'])
 
