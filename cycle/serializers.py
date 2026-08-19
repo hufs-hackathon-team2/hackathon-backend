@@ -100,7 +100,7 @@ class CycleAnalysisSerializer(serializers.ModelSerializer):
     def get_quest_dates(self, obj):
         quests = obj.quests.filter(state=Quest.State.DONE).order_by('last_checked')
         return list(dict.fromkeys(
-        q.last_checked.date().isoformat()
+        q.last_checked.isoformat()
         for q in quests
         if q.last_checked
         ))

@@ -28,7 +28,7 @@ def get_last_record_date(user: User) -> date | None:
     candidates = [
         last_plus_log.created_at.date() if last_plus_log else None,
         last_quest_start.started_at.date() if last_quest_start else None,
-        last_quest_check.last_checked.date() if last_quest_check else None
+        last_quest_check.last_checked if last_quest_check else None
     ]
 
     candidates = [d for d in candidates if d is not None]
@@ -150,7 +150,7 @@ def _collect_cycle_stats(cycle: Cycle) -> dict:
 
     succeeded_quests = get_succeeded_quests(cycle)
     quests = Quest.objects.filter(cycle=cycle, state=Quest.State.DONE).order_by('last_checked')
-    quest_dates = [quest.last_checked.date().isoformat() for quest in quests]
+    quest_dates = [quest.last_checked.isoformat() for quest in quests]
 
     plus_log_entries = PlusLog.objects.filter(cycle=cycle).order_by('-created_at')
     plus_logs = [log.content for log in plus_log_entries]
