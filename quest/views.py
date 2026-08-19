@@ -104,7 +104,13 @@ class QuestActiveListView(APIView):
         )
 
         serializer = CurrentQuestSerializer(quests, many=True)
-        return Response({"active_quests": serializer.data}, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "has_active_quest": quests.exists(),
+                "active_quests": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 ####### AI 추천 퀘스트 목록 조회 #######
 class QuestRecommendationListView(APIView):
