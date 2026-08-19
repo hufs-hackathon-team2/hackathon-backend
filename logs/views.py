@@ -1,5 +1,6 @@
 import logging
 
+from django.db.models import Sum
 from django.utils import timezone
 from datetime import date
 from decouple import config
@@ -245,6 +246,17 @@ def delete_log(request, log_id):
 
         log_entry.deleted_at = timezone.now()
         log_entry.save()
+
+        # 이 로그로 획득했던 캐릭터 성장 게이지가 있으면 회수한다.
+        reclaimed_score = CharacterGrowthEvent.objects.filter(
+            source_type=CharacterGrowthEvent.SourceType.LOG,
+            log=log_entry,
+        ).aggregate(total=Sum('score'))['total'] or 0
+
+        if reclaimed_score:
+            char_state = log_entry.user.character_state
+            char_state.total_score = max(0, char_state.total_score - reclaimed_score)
+            char_state.save(update_fields=['total_score'])
 
         return Response({'message': '로그 삭제 성공'}, status=200)
 
