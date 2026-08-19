@@ -1,3 +1,6 @@
+import random
+from collections import defaultdict
+
 from rest_framework import serializers
 from .models import Cycle
 from logs.models import PlusLog
@@ -62,13 +65,27 @@ class CycleAnalysisSerializer(serializers.ModelSerializer):
         ],
         }'''
 
-#TODO: 퀘스트/플러스로그 내용 구분...? 상위 10개/5개 판단 기준 정하고 로직 구현해야 함 
-
     def get_top_plus_logs(self, obj):
         logs = PlusLog.objects.filter(
-        cycle=obj
-        ).order_by('-created_at')[:10]
-        return [log.content for log in logs]
+            cycle=obj, deleted_at__isnull=True, asset__isnull=False
+        ).select_related('asset')
+
+        contents_by_asset = defaultdict(list)
+        for log in logs:
+            contents_by_asset[log.asset.asset_name].append(log.content)
+
+        ranked_assets = sorted(
+            contents_by_asset.items(), key=lambda item: len(item[1]), reverse=True
+        )[:5]
+
+        return [
+            {
+                "asset": asset_name,
+                "plus_log_count": len(contents),
+                "plus_log_content": random.choice(contents),
+            }
+            for asset_name, contents in ranked_assets
+        ]
 
     def get_completed_quests(self, obj):
         quests = obj.quests.filter(state=Quest.State.DONE)[:5]
