@@ -14,11 +14,13 @@ from cycle.services import close_and_start_new_cycle
 from quest.services import check_for_quest, InvalidTransition, QuestAlreadyChecked, abandon_quest
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
 
 ####### 퀘스트 시작 #######
 class QuestCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(request=QuestCreateSerializer, tags=["Quest"])
     def post(self, request):
         create_serializer = QuestCreateSerializer(data=request.data)
         create_serializer.is_valid(raise_exception=True)  # 실패 시 자동으로 400 응답
