@@ -1,4 +1,5 @@
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import IsAuthenticated
@@ -38,6 +39,7 @@ def _validate_or_401(serializer):
 
 
 class SignupView(APIView):
+    @extend_schema(request=SignupSerializer, tags=["Accounts"])
     def post(self, request):
         serializer = SignupSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -55,6 +57,7 @@ class SignupView(APIView):
 
 
 class LoginView(APIView):
+    @extend_schema(request=LoginSerializer, tags=["Accounts"])
     def post(self, request):
         serializer = LoginSerializer(data=request.data, context={"request": request})
         error_response = _validate_or_401(serializer)
@@ -75,6 +78,7 @@ class LoginView(APIView):
 
 
 class RefreshView(APIView):
+    @extend_schema(request=RefreshSerializer, tags=["Accounts"])
     def post(self, request):
         serializer = RefreshSerializer(data=request.data)
         error_response = _validate_or_401(serializer)
@@ -92,6 +96,7 @@ class RefreshView(APIView):
 
 
 class LogoutView(APIView):
+    @extend_schema(request=RefreshSerializer, tags=["Accounts"])
     def post(self, request):
         serializer = RefreshSerializer(data=request.data)
         error_response = _validate_or_401(serializer)
@@ -106,6 +111,7 @@ class LogoutView(APIView):
 class InterestView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(request=InterestSerializer, tags=["Accounts"])
     def patch(self, request):
         serializer = InterestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -116,6 +122,7 @@ class InterestView(APIView):
 class CharacterSelectView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(request=CharacterSelectSerializer, tags=["Accounts"])
     def patch(self, request):
         # NOTE(ON-02): 기능명세서 "이후 변경 불가" — 온보딩 완료 후에는 재선택을 막는다.
         # 온보딩 도중(ON-04 중도 이탈로 인한 재시작 포함)에는 몇 번이든 다시 고를 수 있어야 한다.
@@ -165,6 +172,7 @@ class SettingsView(APIView):
 class NotificationSettingsView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(request=NotificationSettingsSerializer, tags=["Accounts"])
     def patch(self, request):
         serializer = NotificationSettingsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -181,6 +189,7 @@ class NotificationSettingsView(APIView):
 class WithdrawalView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(request=WithdrawalSerializer, tags=["Accounts"])
     def delete(self, request):
         serializer = WithdrawalSerializer(data=request.data, context={"user": request.user})
         error_response = _validate_or_401(serializer)
@@ -191,6 +200,7 @@ class WithdrawalView(APIView):
 
 
 class PasswordResetRequestView(APIView):
+    @extend_schema(request=PasswordResetRequestSerializer, tags=["Accounts"])
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -199,6 +209,7 @@ class PasswordResetRequestView(APIView):
 
 
 class PasswordResetConfirmView(APIView):
+    @extend_schema(request=PasswordResetConfirmSerializer, tags=["Accounts"])
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
