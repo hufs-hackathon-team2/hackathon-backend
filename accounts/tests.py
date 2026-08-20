@@ -257,6 +257,13 @@ class RefreshViewTests(TestCase):
         self.assertEqual(response.data["onboarding_completed"], False)
         self.assertNotIn("refresh", response.data)
 
+    def test_refresh_token_field_is_long_enough_for_real_jwt(self):
+        # RefreshToken.token이 실제 JWT보다 짧으면 MySQL 등에서 저장 시 잘려서
+        # 이후 조회가 항상 실패한다(SQLite는 길이를 강제 안 해서 로컬에선 안 드러남).
+        field = RefreshToken._meta.get_field("token")
+        self.assertGreaterEqual(field.max_length, 255)
+        self.assertGreater(len(self.refresh_token), 200)
+
     def test_refresh_with_garbage_token_returns_401(self):
         response = self.client.post(self.url, {"refresh_token": "not-a-real-token"})
 
