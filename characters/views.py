@@ -71,8 +71,10 @@ def get_character_room(request):
         started_at_str = char_state.created_at.strftime('%Y-%m-%d') if char_state.created_at else None 
 
         completed_at_str = None
+        days_together = None
         if is_completed and char_state.updated_at:
             completed_at_str = char_state.updated_at.strftime('%Y-%m-%d')
+            days_together = (char_state.updated_at.date() - char_state.created_at.date()).days + 1
 
         return Response({
             "char_type": char_state.char_type,
@@ -87,6 +89,7 @@ def get_character_room(request):
             "character_name": user.character_name,
             "started_at": started_at_str,
             "completed_at": completed_at_str,
+            "days_together": days_together,
         }, status=200)
 
     except Exception as e:
