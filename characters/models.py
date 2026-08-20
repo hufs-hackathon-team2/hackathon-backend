@@ -83,6 +83,25 @@ class CharacterGrowthEvent(models.Model):
     def __str__(self):
         return f"{self.char_state.user.email} | {self.source_type} | +{self.score}점"
 
+class CharacterArchive(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='archived_characters'
+    )
+
+    char_type = models.CharField(max_length=10, choices=CharacterState.CharType.choices)
+    character_name = models.CharField(max_length=10)
+    started_at = models.DateTimeField()
+    completed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'character_archive'
+        ordering = ['-completed_at']
+
+    def __str__(self):
+        return f"{self.user.email} - {self.character_name} (Archived)"
+
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def create_user_character_state(sender, instance, created, **kwargs):
