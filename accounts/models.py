@@ -68,7 +68,10 @@ class User(AbstractBaseUser):
 
 class RefreshToken(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    token = models.CharField(max_length=200)
+    # 실제 발급되는 JWT는 200자를 넘는다(user_id 클레임 포함 시 약 240자대).
+    # SQLite는 길이를 강제하지 않아 200자로도 로컬에선 문제없이 보였지만,
+    # MySQL(배포 DB)은 실제로 잘라서 저장해 리프레시 조회가 항상 실패했다.
+    token = models.CharField(max_length=500)
     issued_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     revoked_at = models.DateTimeField(null=True, blank=True)
