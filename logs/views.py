@@ -112,9 +112,7 @@ def create_and_analyze_log(request):
         llm_result = response.choices[0].message.content.strip()
 
         if llm_result == 'DANGER':
-            log_entry.state = 'FAILED'
-            log_entry.processed_at = timezone.now()
-            log_entry.save()
+            log_entry.delete()
             return Response({'error': '위험 키워드가 포함되어 로그 분석이 실패했습니다.'}, status=403)
 
         valid_asset_names = [a['asset_name'] for a in ASSET_LIST]
