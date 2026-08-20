@@ -124,11 +124,13 @@ class CharacterSelectView(APIView):
 
     @extend_schema(request=CharacterSelectSerializer, tags=["Accounts"])
     def patch(self, request):
-        # NOTE(ON-02): 기능명세서 "이후 변경 불가" — 온보딩 완료 후에는 재선택을 막는다.
-        # 온보딩 도중(ON-04 중도 이탈로 인한 재시작 포함)에는 몇 번이든 다시 고를 수 있어야 한다.
-        if request.user.onboarding_completed:
+        # NOTE(ON-02): 기능명세서 "이후 변경 불가" — 온보딩 완료 후, 키우는 중인 캐릭터가
+        # 있으면 재선택을 막는다. 온보딩 도중(ON-04 중도 이탈로 인한 재시작 포함)에는 몇 번이든
+        # 다시 고를 수 있어야 하고, 온보딩 완료 후라도 POST /characters/me/archive/로 캐릭터를
+        # 보관해서 character_type이 비어 있는 상태라면 새 캐릭터를 고를 수 있어야 한다.
+        if request.user.onboarding_completed and request.user.character_type is not None:
             return Response(
-                {"detail": "온보딩 완료 후에는 캐릭터를 변경할 수 없습니다."},
+                {"detail": "이미 키우고 있는 캐릭터가 있어 변경할 수 없습니다."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         serializer = CharacterSelectSerializer(data=request.data)
