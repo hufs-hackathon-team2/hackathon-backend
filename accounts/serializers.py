@@ -117,7 +117,9 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
-    token = serializers.CharField()
+    token = serializers.RegexField(r"^\d{6}$", error_messages={
+        "invalid": "인증번호는 6자리 숫자여야 합니다.",
+    })
     new_password = serializers.CharField(write_only=True)
 
     def validate_new_password(self, value):

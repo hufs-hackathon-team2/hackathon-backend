@@ -81,14 +81,14 @@ def request_password_reset(email):
         # 이메일 존재 여부를 노출하지 않기 위해 조용히 종료한다.
         return
 
-    token = secrets.token_urlsafe(32)
+    token = f"{secrets.randbelow(1_000_000):06d}"
     expires_at = timezone.now() + PASSWORD_RESET_TOKEN_LIFETIME
     PasswordResetToken.objects.create(user=user, token=token, expires_at=expires_at)
 
     send_mail(
-        subject="[헬시 플레져] 비밀번호 재설정",
+        subject="[헬시 플레져] 비밀번호 재설정 인증번호",
         message=(
-            f"아래 토큰으로 비밀번호를 재설정해주세요. ({PASSWORD_RESET_TOKEN_LIFETIME.seconds // 60}분간 유효)\n\n"
+            f"아래 인증번호로 비밀번호를 재설정해주세요. ({PASSWORD_RESET_TOKEN_LIFETIME.seconds // 60}분간 유효)\n\n"
             f"{token}"
         ),
         from_email=None,

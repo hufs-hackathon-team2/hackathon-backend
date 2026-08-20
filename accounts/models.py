@@ -79,7 +79,8 @@ class RefreshToken(models.Model):
 
 class PasswordResetToken(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    token = models.CharField(max_length=200)
+    # 6자리 숫자 인증번호 ("000000"~"999999", 앞자리 0 유지를 위해 문자열로 저장)
+    token = models.CharField(max_length=6)
     issued_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     used_at = models.DateTimeField(null=True, blank=True)

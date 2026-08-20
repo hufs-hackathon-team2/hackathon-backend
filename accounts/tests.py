@@ -742,14 +742,14 @@ class PasswordResetConfirmViewTests(TestCase):
         )
         self.reset_token = PasswordResetToken.objects.create(
             user=self.user,
-            token="valid-token",
+            token="123456",
             expires_at=timezone.now() + timedelta(minutes=30),
         )
 
     def test_valid_token_updates_password_and_returns_200(self):
         response = self.client.post(
             self.url,
-            {"token": "valid-token", "new_password": "new-correct-1"},
+            {"token": "123456", "new_password": "new-correct-1"},
             format="json",
         )
 
@@ -762,13 +762,13 @@ class PasswordResetConfirmViewTests(TestCase):
     def test_used_token_cannot_be_reused(self):
         self.client.post(
             self.url,
-            {"token": "valid-token", "new_password": "new-correct-1"},
+            {"token": "123456", "new_password": "new-correct-1"},
             format="json",
         )
 
         response = self.client.post(
             self.url,
-            {"token": "valid-token", "new_password": "another-pw-2"},
+            {"token": "123456", "new_password": "another-pw-2"},
             format="json",
         )
 
@@ -780,7 +780,7 @@ class PasswordResetConfirmViewTests(TestCase):
 
         response = self.client.post(
             self.url,
-            {"token": "valid-token", "new_password": "new-correct-1"},
+            {"token": "123456", "new_password": "new-correct-1"},
             format="json",
         )
 
@@ -789,7 +789,16 @@ class PasswordResetConfirmViewTests(TestCase):
     def test_unknown_token_returns_400(self):
         response = self.client.post(
             self.url,
-            {"token": "does-not-exist", "new_password": "new-correct-1"},
+            {"token": "999999", "new_password": "new-correct-1"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_malformed_token_returns_400(self):
+        response = self.client.post(
+            self.url,
+            {"token": "not-digits", "new_password": "new-correct-1"},
             format="json",
         )
 
@@ -797,7 +806,7 @@ class PasswordResetConfirmViewTests(TestCase):
 
     def test_weak_new_password_returns_400(self):
         response = self.client.post(
-            self.url, {"token": "valid-token", "new_password": "1234"}, format="json"
+            self.url, {"token": "123456", "new_password": "1234"}, format="json"
         )
 
         self.assertEqual(response.status_code, 400)
