@@ -69,7 +69,12 @@ def create_and_analyze_log(request):
         created_at__date=today,
         deleted_at__isnull=True
     ).exists()
-    
+
+    if has_log_today:
+        return Response({
+            'error': '플러스 로그는 하루에 하나만 작성할 수 있습니다.'
+        }, status=403)
+
     try:
         log_entry = PlusLog.objects.create(
             user=request.user,
@@ -149,17 +154,16 @@ def create_and_analyze_log(request):
         log_entry.processed_at = timezone.now()
         log_entry.save()
 
-        if not has_log_today:
-            char_state, created = CharacterState.objects.get_or_create(user=request.user)
-            char_state.total_score += 1
-            char_state.save()
+        char_state, created = CharacterState.objects.get_or_create(user=request.user)
+        char_state.total_score += 1
+        char_state.save()
 
-            CharacterGrowthEvent.objects.create(
-                char_state=char_state,
-                source_type=CharacterGrowthEvent.SourceType.LOG,
-                score=1,
-                log=log_entry
-            )
+        CharacterGrowthEvent.objects.create(
+            char_state=char_state,
+            source_type=CharacterGrowthEvent.SourceType.LOG,
+            score=1,
+            log=log_entry
+        )
 
         return Response({
             'message': '로그 분석 성공',
