@@ -14,8 +14,9 @@ from django.db import transaction
 from django.utils import timezone
 
 from accounts.models import User
-from characters.models import CharacterArchive
+from characters.models import CharacterArchive, CharacterGrowthEvent
 from cycle.models import Cycle
+from logs.models import Asset, PlusLog
 from quest.models import Quest
 
 DEMO_PASSWORD = "Demo1234!"
@@ -30,6 +31,16 @@ ARCHIVE_PLAN = [
 CURRENT_CHAR_TYPE = "cat"
 CURRENT_CHAR_NAME = "감자"
 SCORE_BEFORE_FINAL_CHECK = 40  # +5(퀘스트 완료) = 45 = 4단계 Final 정확히 채움
+
+# 캐릭터 방의 "최근 활동" 아이콘 캐러셀이 비어 보이지 않도록 채워두는 플러스 로그.
+# 각 로그가 실제로 +1점씩 채점되어 SCORE_BEFORE_FINAL_CHECK에 포함된다.
+PLUS_LOG_PLAN = [
+    ("아침에 20분 조깅했다", "run", 3),
+    ("저녁 먹고 동네 산책 30분 다녀옴", "walk", 6),
+    ("헬스장 가서 웨이트 1시간", "weights", 10),
+    ("집에서 필라테스 20분", "ballet", 14),
+    ("점심에 샐러드로 든든하게", "salad", 18),
+]
 
 
 def _aware(d, hour=9, minute=0):
@@ -75,23 +86,44 @@ class Command(BaseCommand):
                     completed_at=_aware(completed_at)
                 )
 
-            # 현재 키우고 있는 캐릭터: 마지막 아카이브 완료 시점부터 지금까지 성장 중
+            # 현재 키우고 있는 캐릭터: 마지막 아카이브 완료 시점부터 지금까지 성장 중.
+            # PLUS_LOG_PLAN 각각이 실제로 +1점씩 채점되므로, 그만큼을 뺀 값을 베이스로 두고
+            # 로그를 만들면서 다시 채워 최종적으로 SCORE_BEFORE_FINAL_CHECK에 도달하게 한다.
             current_growth_start = today - timedelta(days=ARCHIVE_PLAN[-1][3])
             char_state = user.character_state
             char_state.char_type = CURRENT_CHAR_TYPE.upper()
-            char_state.total_score = SCORE_BEFORE_FINAL_CHECK
+            char_state.total_score = SCORE_BEFORE_FINAL_CHECK - len(PLUS_LOG_PLAN)
             char_state.save(update_fields=["char_type", "total_score"])
             type(char_state).objects.filter(pk=char_state.pk).update(
                 created_at=_aware(current_growth_start)
             )
 
-            # 현재 사이클 (퀘스트가 소속될 ACTIVE 사이클)
+            # 현재 사이클 (퀘스트/플러스로그가 소속될 ACTIVE 사이클)
             cycle = Cycle.objects.create(
                 user=user, state=Cycle.State.ACTIVE, count=1,
                 started_at=current_growth_start,
             )
             user.current_cycle = cycle
             user.save(update_fields=["current_cycle"])
+
+            # 캐릭터 방 "최근 활동" 아이콘용 플러스 로그 (하루 1개 제한을 지키도록 날짜를 모두 다르게)
+            for content, asset_name, days_ago in PLUS_LOG_PLAN:
+                log_at = _aware(today - timedelta(days=days_ago), hour=9)
+                asset = Asset.objects.filter(asset_name=asset_name, is_active=True).first()
+                log_entry = PlusLog.objects.create(
+                    user=user, cycle=cycle, content=content, state="DONE", asset=asset,
+                )
+                PlusLog.objects.filter(pk=log_entry.pk).update(
+                    created_at=log_at, processed_at=log_at,
+                )
+                char_state.total_score += 1
+                char_state.save(update_fields=["total_score"])
+                event = CharacterGrowthEvent.objects.create(
+                    char_state=char_state,
+                    source_type=CharacterGrowthEvent.SourceType.LOG,
+                    score=1, log=log_entry,
+                )
+                CharacterGrowthEvent.objects.filter(pk=event.pk).update(created_at=log_at)
 
             # 작심삼일 퀘스트: 2번 체크 완료(count=2), 마지막 체크가 어제라 오늘 한 번 더
             # 누르면 count=3/DONE으로 완료된다. started_at은 7일 데드라인에 안전하게 여유를 둠.
