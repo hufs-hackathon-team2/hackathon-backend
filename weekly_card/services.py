@@ -37,16 +37,19 @@ def _collect_weekly_stats(user, week_start: date, week_end: date) -> dict:
         state=Quest.State.DONE,
         last_checked__range=(week_start, week_end),
     )
-    
+
     plus_logs = PlusLog.objects.filter(
         user=user, created_at__date__gte=week_start,
         created_at__date__lte=week_end
         )
 
+    log_dates = plus_logs.values_list('created_at__date', flat=True)
+    quest_dates = succeeded_quests.values_list('last_checked', flat=True)
 
     return {
         "quest_titles": [q.quest_content for q in succeeded_quests],
         "plus_logs": [log.content for log in plus_logs],
+        "active_days": len(set(log_dates) | set(quest_dates)),
     }
 
 
@@ -190,7 +193,7 @@ def generate_weekly_analysis(user, week_start: date) -> WeeklyAnalysis | None:
             week_end=week_end,
             analysis={"weekly_summary": ai_result.get("weekly_summary", "")},
             rest_NT_content=ai_result.get("rest_NT_content", ""),
-            # TODO: active_days 채우기 (stats에서)
+            active_days=stats["active_days"],
             plus_log_count=len(stats["plus_logs"]),
             success_quest_count=len(stats["quest_titles"]),
         )

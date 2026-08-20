@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from .models import WeeklyAnalysis, RecommendedQuest
+from logs.models import PlusLog
+from quest.models import Quest
 
 class NextWeekQuestsSerializer(serializers.ModelSerializer):
     recommendation_id = serializers.IntegerField(source = 'id', read_only = True)
@@ -17,7 +19,9 @@ class WeeklyCardSerializer(serializers.ModelSerializer):
     )
 
     is_generated = serializers.SerializerMethodField()
-    
+
+    active_days = serializers.SerializerMethodField()
+
     class Meta:
         model = WeeklyAnalysis
         fields = ['week_start', 'week_end',
@@ -27,3 +31,18 @@ class WeeklyCardSerializer(serializers.ModelSerializer):
 
     def get_is_generated(self, obj):
         return self.context.get('is_generated', False)
+
+    def get_active_days(self, obj):
+        log_dates = PlusLog.objects.filter(
+            user=obj.user,
+            created_at__date__gte=obj.week_start,
+            created_at__date__lte=obj.week_end,
+        ).values_list('created_at__date', flat=True)
+
+        quest_dates = Quest.objects.filter(
+            cycle__user=obj.user,
+            state=Quest.State.DONE,
+            last_checked__range=(obj.week_start, obj.week_end),
+        ).values_list('last_checked', flat=True)
+
+        return len(set(log_dates) | set(quest_dates))
