@@ -85,7 +85,7 @@ class AIRecommendedQuestSerializer(serializers.ModelSerializer):
 
 class AIRecommendationResponseSerializer(serializers.Serializer):
     has_recommendations = serializers.BooleanField()
-    week_start = serializers.DateField()
+    week_start = serializers.DateField(allow_null=True)
 
     recommended_quests = AIRecommendedQuestSerializer(many=True)
 

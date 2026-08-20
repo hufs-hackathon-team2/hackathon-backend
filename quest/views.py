@@ -5,10 +5,8 @@ from rest_framework.response import Response
 from .serializers import QuestCreateSerializer, QuestResponseSerializer, CheckQuestSerializer, AbandonQuestSerializer, CurrentQuestSerializer, AIRecommendationResponseSerializer, AllQuestsOfCycleResponseSerializer, QuestSuccessDetailSerializer
 from .models import Quest
 from accounts.models import User
-from logs.models import PlusLog
 from cycle.models import Cycle
-from weekly_card.models import RecommendedQuest
-from datetime import datetime, timedelta
+from weekly_card.models import RecommendedQuest, WeeklyAnalysis
 from django.utils import timezone
 from cycle.services import close_and_start_new_cycle
 from quest.services import (
@@ -138,30 +136,32 @@ class QuestRecommendationListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        today = timezone.localdate()
-        last_monday = today - timedelta(days=today.weekday() + 7)
-        # created_at은 DateTimeField라 naive date로 바로 비교하면 USE_TZ=True에서
-        # naive datetime 경고 + 타임존 어긋남이 생기므로, aware datetime 경계로 변환해서 비교한다.
-        week_start_dt = timezone.make_aware(datetime.combine(last_monday, datetime.min.time()))
-        week_end_dt = week_start_dt + timedelta(days=7)
         user = request.user
-        #직전 주의 주간 분석 레코드와 연결된 추천퀘스트 레코드를 가져와야 함
-        recommended_quests = RecommendedQuest.objects.filter(
-            weekly_analysis__user=user,
-            weekly_analysis__week_start=last_monday
-        )
 
-        data = {
-            'has_recommendations': recommended_quests.exists(),
-            'week_start': last_monday,
-            'recommended_quests': recommended_quests,
-            'plus_log_count': PlusLog.objects.filter(
-                user = user,
-                created_at__gte=week_start_dt,
-                created_at__lt=week_end_dt,
-            ).count(),
-            'required_log_count' : 2
-        }
+        # 직전 주에 한정하지 않고, 추천 퀘스트가 실제로 딸린 가장 최근 주간 분석을 찾는다.
+        # 휴식기를 오래 가진 뒤 재개해도(직전 주엔 분석이 없어도) 마지막으로 받은 추천을 볼 수 있어야 한다.
+        latest_analysis = WeeklyAnalysis.objects.filter(
+            user=user,
+            recommendations__isnull=False,
+        ).distinct().order_by('-week_start').first()
+
+        if latest_analysis is None:
+            data = {
+                'has_recommendations': False,
+                'week_start': None,
+                'recommended_quests': RecommendedQuest.objects.none(),
+                'plus_log_count': 0,
+                'required_log_count': 2,
+            }
+        else:
+            recommended_quests = latest_analysis.recommendations.all()
+            data = {
+                'has_recommendations': recommended_quests.exists(),
+                'week_start': latest_analysis.week_start,
+                'recommended_quests': recommended_quests,
+                'plus_log_count': latest_analysis.plus_log_count,
+                'required_log_count': 2,
+            }
         response_serializer = AIRecommendationResponseSerializer(data)
 
         return Response(response_serializer.data, status=status.HTTP_200_OK)
