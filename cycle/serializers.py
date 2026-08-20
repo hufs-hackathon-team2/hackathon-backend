@@ -40,7 +40,7 @@ class CycleAnalysisSerializer(serializers.ModelSerializer):
         if obj.rest_started_at:
             return (obj.rest_started_at - obj.started_at).days
 
-        today = timezone.now().date()
+        today = timezone.localdate()
 
         return (today - obj.started_at).days
 
