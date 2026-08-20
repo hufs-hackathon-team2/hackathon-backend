@@ -123,7 +123,7 @@ def archive_character(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        char_type_str = user.character_type.upper() if user.character_type else "CAT"
+        char_type_str = user.character_type.upper() if user.character_type else "cat"
 
         # 1. 아카이브 기록 생성
         archive_record = CharacterArchive.objects.create(

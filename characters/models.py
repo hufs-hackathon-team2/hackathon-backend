@@ -6,8 +6,8 @@ from django.dispatch import receiver
 
 class CharacterState(models.Model):
     class CharType(models.TextChoices):
-        CAT = 'CAT', '고양이'
-        DOG = 'DOG', '강아지'
+        cat = 'cat', '고양이'
+        dog = 'dog', '강아지'
 
     class Stage(models.TextChoices):
         STAGE_1_SMALL = '1-small', '1단계 Small'
@@ -19,7 +19,7 @@ class CharacterState(models.Model):
         STAGE_4_FINAL = '4-final', '4단계 Final'
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='character_state')
-    char_type = models.CharField(max_length=10, choices=CharType.choices, default=CharType.CAT)
+    char_type = models.CharField(max_length=10, choices=CharType.choices, default=CharType.cat)
     total_score = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -108,6 +108,6 @@ def create_user_character_state(sender, instance, created, **kwargs):
     if created:
         CharacterState.objects.create(
             user=instance,
-            char_type=CharacterState.CharType.CAT.value,
+            char_type=CharacterState.CharType.cat.value,
             total_score=0
         )
