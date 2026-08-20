@@ -184,13 +184,9 @@ def create_and_analyze_log(request):
 def get_log_list(request):
     try:
         page_number = request.query_params.get('page', 1)
-        cycle_entry = request.user.current_cycle
-
-        if not cycle_entry:
-            return Response({'error': '현재 사이클이 없습니다. 온보딩을 완료해주세요.'}, status=400)
 
         logs_query = PlusLog.objects.filter(
-            cycle=cycle_entry,
+            user=request.user,
             deleted_at__isnull=True
         ).select_related('asset').order_by('-created_at')
 
