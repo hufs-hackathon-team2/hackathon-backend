@@ -88,15 +88,32 @@ def create_and_analyze_log(request):
         너는 유저 로그를 분석해서 가장 알맞은 에셋을 추출하는 시스템이야.
         [선택 가능한 에셋 리스트: 행동/의미(영어단어)]
         {asset_options_str}
+
+        [위험(DANGER) 판단 기준]
+        이 앱은 신체적/정신적 건강을 즐겁게 지속하도록 돕는 '헬시 플레저(Healthy Pleasure)' 서비스야.
+        '위험'은 신체 건강 또는 정신 건강에 실질적으로 해가 되는 왜곡된 생각이나 행동으로 한정해.
+        아래처럼 명확한 경우에만 DANGER로 판단해:
+        - 극단적인 단식/절식을 긍정적으로 여기는 표현 (예: "오늘 하루 종일 굶었음", "이틀째 아무것도 안 먹음")
+        - 자해, 자살 관련 언급
+        - 폭식 후 의도적 구토 등 섭식장애성 행동
+        - 무리한 다이어트약/보충제 남용, 스스로를 해치는 수준의 과도한 운동
+        - 명확한 자기비하·자기혐오 표현
+        아래는 DANGER가 아니야:
+        - 단순히 뜻을 모르겠거나 애매한 표현
+        - 일반적인 다이어트/식단 조절 (예: "저녁은 가볍게 물만 마심", "간헐적 단식 중")
+        - 단순 피로/스트레스 호소처럼 흔한 감정 표현
+
         [필수 규칙]
-        1. 사용자의 로그에 건강을 해칠 수 있는 위험 키워드(예. 극단적 다이어트, 자해 등)가 명확하게 있을 때만 'DANGER'라고 응답해. 단순히 뜻을 모르겠거나 애매하다는 이유로 DANGER를 반환하면 안 돼.
+        1. 위 기준에 명확히 해당할 때만 DANGER로 판단해.
         2. 구체적인 행동이 있다면 반드시 행동을 우선으로 선택 (감정보다 행동 우선)
         3. 비슷한 에셋이 여러 개라면 더 구체적인 쪽을 선택 (예. 운동 vs 등산 -> 등산 선택)
-        4. 로그 내용과 일치하는 에셋이 없거나, 의미를 알 수 없는 무작위 문자/오타/한글 자모(예. "ㅇㅁㄻㄹㄷ")처럼 실제 활동을 특정할 수 없는 내용이면 위험 키워드가 아닌 이상 무조건 'sprout'를 반환해.
-        5. 어떠한 설명도 덧붙이지 말고, 오직 '에셋명(예: run)' 또는 'DANGER'만 반환해.
+        4. 로그 내용과 일치하는 에셋이 없거나, 의미를 알 수 없는 무작위 문자/오타/한글 자모(예. "ㅇㅁㄻㄹㄷ")처럼 실제 활동을 특정할 수 없는 내용이면 위험이 아닌 이상 무조건 'sprout'를 반환해.
+        5. 응답은 반드시 한 줄로만, 아래 형식 중 하나로만 작성해. 다른 설명이나 마크다운, 따옴표는 절대 붙이지 마.
+           - 위험이 아니면: 에셋명만 그대로 (예: run)
+           - 위험이면: "DANGER: 판단 이유 한 문장" (예: DANGER: 하루 종일 굶는 건 건강에 해로울 수 있어요)
         """
 
-        user_prompt = f"로그 내용: \"{content}\"\n\n위 로그에 가장 적합한 에셋 1개를 출력하세요."
+        user_prompt = f"로그 내용: \"{content}\"\n\n위 로그에 가장 적합한 에셋 1개 또는 DANGER 판단 결과를 출력하세요."
 
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -104,16 +121,20 @@ def create_and_analyze_log(request):
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_prompt}
                         ],
-                        max_tokens= 20,
+                        max_tokens= 80,
                         temperature = 0.0,
                         timeout=10
         )
 
         llm_result = response.choices[0].message.content.strip()
 
-        if llm_result == 'DANGER':
+        if llm_result.startswith('DANGER'):
+            reason = llm_result.split(':', 1)[1].strip() if ':' in llm_result else '건강에 위험할 수 있는 내용이 포함되어 있어요.'
             log_entry.delete()
-            return Response({'error': '위험 키워드가 포함되어 로그 분석이 실패했습니다.'}, status=403)
+            return Response(
+                {'error': '위험 키워드가 포함되어 로그 분석이 실패했습니다.', 'reason': reason},
+                status=403,
+            )
 
         valid_asset_names = [a['asset_name'] for a in ASSET_LIST]
         final_asset_name = llm_result if llm_result in valid_asset_names else 'sprout'
