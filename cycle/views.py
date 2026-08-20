@@ -87,7 +87,7 @@ class CycleHistoryListView(APIView):
         response_serializer = CycleHistorySerializer(cycles, many=True)
 
         response = {
-            "cycles": [response_serializer.data]
+            "cycles": response_serializer.data
         }
 
         return Response(response, status=status.HTTP_200_OK)

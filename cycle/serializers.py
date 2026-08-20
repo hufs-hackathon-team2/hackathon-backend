@@ -6,6 +6,8 @@ from .models import Cycle
 from logs.models import PlusLog
 from quest.models import Quest
 
+from django.utils import timezone
+
 ####### 싸이클 분석 결과 제공 #######
 class CycleAnalysisSerializer(serializers.ModelSerializer):
     cycle_id = serializers.IntegerField(source = 'id', read_only = True)
@@ -32,9 +34,15 @@ class CycleAnalysisSerializer(serializers.ModelSerializer):
                   "log_dates", "quest_dates", "analysis_request_count"]
 
     def get_active_days(self, obj):
-        if not obj.started_at or not obj.rest_started_at:
+        if not obj.started_at:
             return None
-        return (obj.rest_started_at - obj.started_at).days
+
+        if obj.rest_started_at:
+            return (obj.rest_started_at - obj.started_at).days
+
+        today = timezone.now().date()
+
+        return (today - obj.started_at).days
 
     def get_rest_days(self, obj):
         if not obj.rest_started_at or not obj.closed_at:
