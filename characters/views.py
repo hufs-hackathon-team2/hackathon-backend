@@ -62,7 +62,7 @@ def get_character_room(request):
                 cycle=current_cycle,
                 state='DONE',
                 deleted_at__isnull=True,
-            ).select_related('asset').order_by('-created_at')[:14]
+            ).select_related('asset').order_by('-created_at')[:16]
 
             assets_list = [log.asset.asset_name for log in recent_logs if log.asset]
 
