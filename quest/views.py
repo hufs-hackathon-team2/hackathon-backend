@@ -8,7 +8,7 @@ from accounts.models import User
 from logs.models import PlusLog
 from cycle.models import Cycle
 from weekly_card.models import RecommendedQuest
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from django.utils import timezone
 from cycle.services import close_and_start_new_cycle
 from quest.services import (
@@ -40,7 +40,7 @@ class QuestCreateView(APIView):
             )
 
         # 퀘스트는 한 번에 하나만 ACTIVE로 진행할 수 있다.
-        today = date.today()
+        today = timezone.localdate()
         sync_active_quest_state(request.user, today)
         has_active_quest = Quest.objects.filter(
             cycle__user=request.user,
@@ -89,7 +89,7 @@ class QuestCheckUpdateView(APIView):
 
         quest = get_object_or_404(Quest, id=quest_id, cycle__user=request.user)
         try:
-            result = check_for_quest(quest, date.today())
+            result = check_for_quest(quest, timezone.localdate())
             response_serializer = CheckQuestSerializer(result)
             return Response(response_serializer.data, status=status.HTTP_200_OK)
         except InvalidTransition as e:
@@ -106,7 +106,7 @@ class QuestAbandonUpdateView(APIView):
     def post(self, request, quest_id):
         quest = get_object_or_404(Quest, id=quest_id, cycle__user=request.user)
         try:
-            result = abandon_quest(quest, date.today())
+            result = abandon_quest(quest, timezone.localdate())
             response_serializer = AbandonQuestSerializer(result)
             return Response(response_serializer.data, status=status.HTTP_200_OK)
         except InvalidTransition as e:
@@ -118,7 +118,7 @@ class QuestActiveListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        sync_active_quest_state(request.user, date.today())
+        sync_active_quest_state(request.user, timezone.localdate())
         quests = Quest.objects.filter(
             cycle__user=request.user,
             state=Quest.State.ACTIVE

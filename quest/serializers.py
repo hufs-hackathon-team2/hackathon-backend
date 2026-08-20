@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Quest
 from weekly_card.models import RecommendedQuest
-from datetime import date
+from django.utils import timezone
 from characters.models import CharacterGrowthEvent
 from django.shortcuts import get_object_or_404
 
@@ -68,7 +68,7 @@ class CurrentQuestSerializer(serializers.ModelSerializer):
     def get_days_since_start(self, obj):
         if not obj.started_at:
             return None
-        return (date.today() - obj.started_at).days
+        return (timezone.localdate() - obj.started_at).days
 
     def get_d_day(self, obj):
         days = self.get_days_since_start(obj)

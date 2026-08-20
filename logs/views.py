@@ -2,7 +2,6 @@ import logging
 
 from django.db.models import Sum
 from django.utils import timezone
-from datetime import date
 from decouple import config
 from openai import OpenAI
 
@@ -79,7 +78,7 @@ def create_and_analyze_log(request):
             state='PENDING'
         )
 
-        new_cycle = close_and_start_new_cycle(request.user, date.today(), linked_record=log_entry)
+        new_cycle = close_and_start_new_cycle(request.user, timezone.localdate(), linked_record=log_entry)
 
         is_new_cycle_started = bool(new_cycle)
 

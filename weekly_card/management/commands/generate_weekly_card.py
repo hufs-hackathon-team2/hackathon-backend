@@ -1,6 +1,7 @@
-from datetime import date, timedelta
+from datetime import timedelta
 
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 from weekly_card.services import run_weekly_batch
 
@@ -10,7 +11,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
 
-        today = date.today()
+        today = timezone.localdate()
 
         # GET /weekly-card/(weekly_card/views.py)와 동일하게 "지난주" 기준으로 맞춘다.
         week_start = today - timedelta(

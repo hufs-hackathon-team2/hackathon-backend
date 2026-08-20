@@ -2,7 +2,8 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from .serializers import NextWeekQuestsSerializer, WeeklyCardSerializer
-from datetime import date, timedelta
+from datetime import timedelta
+from django.utils import timezone
 from .models import WeeklyAnalysis
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -13,7 +14,8 @@ class WeeklyCardAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        week_start = date.today() - timedelta(days=date.today().weekday() + 7)
+        today = timezone.localdate()
+        week_start = today - timedelta(days=today.weekday() + 7)
         target_weekly_analysis = WeeklyAnalysis.objects.filter(
             user=request.user,
             week_start=week_start).first()
