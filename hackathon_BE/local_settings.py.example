@@ -25,3 +25,7 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# settings.py 기본값은 실제 SMTP 발송이라, 로컬에서는 콘솔 출력으로 덮어써서
+# 개발 중 실수로 진짜 메일이 나가지 않게 한다.
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

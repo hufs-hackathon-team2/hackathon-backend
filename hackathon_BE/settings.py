@@ -76,8 +76,15 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
 }
 
-# AU-05: 개발 중에는 실제 메일 발송 대신 콘솔 출력으로 대체
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# AU-05: 비밀번호 재설정 인증번호 발송용 SMTP 설정.
+# 로컬 개발 환경은 local_settings.py에서 console.EmailBackend로 덮어써서 실제 메일이 나가지 않는다.
+EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER or 'webmaster@localhost')
 
 # DEBUG=False면 Django 기본 로깅이 500 에러를 콘솔에 안 찍고 mail_admins로만 보내서
 # (메일 설정도 없어 사실상 소실) `docker compose logs`로 원인 파악이 불가능했다.
