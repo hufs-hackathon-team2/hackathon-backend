@@ -3,9 +3,12 @@ from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
 from .serializers import QuestCreateSerializer, QuestResponseSerializer, CheckQuestSerializer, AbandonQuestSerializer, CurrentQuestSerializer, AIRecommendationResponseSerializer, AllQuestsOfCycleResponseSerializer, QuestSuccessDetailSerializer
+from datetime import timedelta
+
 from .models import Quest
 from accounts.models import User
 from cycle.models import Cycle
+from logs.models import PlusLog
 from weekly_card.models import RecommendedQuest, WeeklyAnalysis
 from django.utils import timezone
 from cycle.services import close_and_start_new_cycle
@@ -132,6 +135,10 @@ class QuestActiveListView(APIView):
         )
 
 ####### AI 추천 퀘스트 목록 조회 #######
+# weekly_card.services.generate_weekly_analysis가 위클리 카드를 만드는 기준(플러스 로그 3개 이상)과 동일하게 맞춘다.
+REQUIRED_LOG_COUNT_FOR_RECOMMENDATIONS = 3
+
+
 class QuestRecommendationListView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -146,12 +153,24 @@ class QuestRecommendationListView(APIView):
         ).distinct().order_by('-week_start').first()
 
         if latest_analysis is None:
+            # 아직 위클리 분석이 한 번도 안 돌았어도, 이번 주에 이미 남긴 로그는 있을 수 있다.
+            # 여기서 0을 그대로 반환하면 실제 플러스 로그 개수와 어긋나 보인다.
+            today = timezone.localdate()
+            week_start = today - timedelta(days=today.weekday())
+            week_end = week_start + timedelta(days=6)
+            current_log_count = PlusLog.objects.filter(
+                user=user,
+                created_at__date__gte=week_start,
+                created_at__date__lte=week_end,
+                deleted_at__isnull=True,
+            ).count()
+
             data = {
                 'has_recommendations': False,
                 'week_start': None,
                 'recommended_quests': RecommendedQuest.objects.none(),
-                'plus_log_count': 0,
-                'required_log_count': 2,
+                'plus_log_count': current_log_count,
+                'required_log_count': REQUIRED_LOG_COUNT_FOR_RECOMMENDATIONS,
             }
         else:
             recommended_quests = latest_analysis.recommendations.all()
@@ -160,7 +179,7 @@ class QuestRecommendationListView(APIView):
                 'week_start': latest_analysis.week_start,
                 'recommended_quests': recommended_quests,
                 'plus_log_count': latest_analysis.plus_log_count,
-                'required_log_count': 2,
+                'required_log_count': REQUIRED_LOG_COUNT_FOR_RECOMMENDATIONS,
             }
         response_serializer = AIRecommendationResponseSerializer(data)
 
